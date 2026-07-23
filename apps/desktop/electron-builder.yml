@@ -12,6 +12,7 @@ copyright: Copyright © Deekod Digital
 directories:
   output: release
   buildResources: build
+npmRebuild: false
 files:
   - dist/**/*
   - dist-electron/**/*

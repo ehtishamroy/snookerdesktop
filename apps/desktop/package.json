@@ -10,7 +10,7 @@
     "build": "pnpm run typecheck && vite build",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run",
-    "package": "pnpm run build && electron-builder"
+    "package": "pnpm run build && electron-rebuild -f -w better-sqlite3 && electron-builder"
   },
   "dependencies": {
     "@snooker/shared": "workspace:*",
@@ -27,6 +27,7 @@
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.20",
+    "@electron/rebuild": "^3.6.0",
     "electron": "^31.3.0",
     "electron-builder": "^24.13.3",
     "postcss": "^8.4.41",
