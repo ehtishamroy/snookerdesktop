@@ -33,7 +33,7 @@ export function IdleAlertBanner({ onOpenTable }: { onOpenTable: (tableId: number
                 press End Game?
               </div>
               <div className="text-sm opacity-80">
-                {a.gameTypeName} · {a.loserName} · expected ~{Math.round(a.thresholdMinutes)} min
+                {a.gameTypeName} · {a.loserName ?? "No name set"} · expected ~{Math.round(a.thresholdMinutes)} min
               </div>
             </div>
           </div>

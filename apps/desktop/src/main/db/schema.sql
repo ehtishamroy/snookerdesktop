@@ -23,8 +23,12 @@
 --
 -- `sync_queue` and `app_settings` are local-only tables with no server
 -- equivalent at all.
-
-PRAGMA foreign_keys = ON;
+--
+-- foreign_keys enforcement is controlled by client.ts (getDb()), not here —
+-- this file is also re-exec'd mid-migration (see migrateGamesLoserNullable),
+-- where enforcement needs to stay off until the rebuild finishes; a stray
+-- `PRAGMA foreign_keys = ON` here would silently re-enable it partway
+-- through that rebuild.
 
 -- ---------------------------------------------------------------------------
 -- Local-only tables
@@ -152,7 +156,7 @@ CREATE TABLE IF NOT EXISTS games (
   discount_reason          TEXT,
   discount_by_id           INTEGER REFERENCES users (id),
   price_final              INTEGER NOT NULL,
-  loser_customer_id        INTEGER NOT NULL REFERENCES customers (id),
+  loser_customer_id        INTEGER REFERENCES customers (id),
   winner_customer_id       INTEGER REFERENCES customers (id),
   payment_status           TEXT NOT NULL CHECK (payment_status IN ('paid', 'pending', 'loan', 'collateral', 'tricked')),
   created_by_user_id       INTEGER NOT NULL REFERENCES users (id),

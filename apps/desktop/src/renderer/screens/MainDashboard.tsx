@@ -2,21 +2,17 @@ import { useEffect, useState } from "react";
 import { useTablesStore } from "../state/tablesStore";
 import { TableTile } from "../components/TableTile";
 import { IdleAlertBanner } from "../components/IdleAlertBanner";
-import { RegisterPanel } from "./RegisterPanel";
-import type { TableTileView } from "../api";
+import { TableDetailsScreen } from "./TableDetailsScreen";
 
 export function MainDashboard({ onNavigateLedger }: { onNavigateLedger: () => void }) {
   const { tiles, summary, startPolling } = useTablesStore();
-  const [openTile, setOpenTile] = useState<TableTileView | null>(null);
+  const [selectedTableId, setSelectedTableId] = useState<number | null>(null);
 
   useEffect(() => startPolling(), [startPolling]);
 
-  // Keep the open Register Panel's tile data fresh as the underlying poll refreshes.
-  useEffect(() => {
-    if (!openTile) return;
-    const fresh = tiles.find((t) => t.table.id === openTile.table.id);
-    if (fresh) setOpenTile(fresh);
-  }, [tiles]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (selectedTableId !== null) {
+    return <TableDetailsScreen tableId={selectedTableId} onBack={() => setSelectedTableId(null)} />;
+  }
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -28,16 +24,14 @@ export function MainDashboard({ onNavigateLedger }: { onNavigateLedger: () => vo
       </div>
 
       <div className="mb-4">
-        <IdleAlertBanner onOpenTable={(tableId) => setOpenTile(tiles.find((t) => t.table.id === tableId) ?? null)} />
+        <IdleAlertBanner onOpenTable={(tableId) => setSelectedTableId(tableId)} />
       </div>
 
       <div className="grid grid-cols-3 gap-5">
         {tiles.map((tile) => (
-          <TableTile key={tile.table.id} tile={tile} onClick={() => setOpenTile(tile)} />
+          <TableTile key={tile.table.id} tile={tile} onClick={() => setSelectedTableId(tile.table.id)} />
         ))}
       </div>
-
-      {openTile && <RegisterPanel tile={openTile} onClose={() => setOpenTile(null)} />}
     </div>
   );
 }

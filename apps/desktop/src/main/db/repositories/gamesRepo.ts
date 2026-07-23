@@ -18,6 +18,7 @@ import type {
   IdleAlertItem,
   ReverseGameInput,
   StartGameInput,
+  TableHistoryView,
   TableTileView,
   UpdateGameInput,
 } from "../../../ipc/contract";
@@ -87,7 +88,7 @@ export function startGame(input: StartGameInput): GameEntity {
         input.startTime,
         block.blockPrice,
         block.blockPrice,
-        input.loserCustomerId,
+        input.loserCustomerId ?? null,
         input.winnerCustomerId ?? null,
         input.createdByUserId,
         input.shiftId,
@@ -134,6 +135,12 @@ export function endGame(input: EndGameInput): GameEntity {
     if (before.reversed) throw new Error("Cannot end a reversed game");
     if (before.endTime) throw new Error("This game was already ended");
 
+    const loserCustomerId = input.loserCustomerId ?? before.loserCustomerId;
+    if (!loserCustomerId) {
+      throw new Error("A player name (or a temporary/nishani description) is required before ending the game");
+    }
+    const winnerCustomerId = input.winnerCustomerId !== undefined ? input.winnerCustomerId : before.winnerCustomerId;
+
     const table = getTableById(db, before.tableId);
     // Overtime billing must reflect the price that was active when the game
     // STARTED (decision #2), not whatever the current live pricing is.
@@ -152,7 +159,7 @@ export function endGame(input: EndGameInput): GameEntity {
       `UPDATE games SET
          end_time = ?, duration_actual_minutes = ?, duration_billed_minutes = ?,
          price_original = ?, discount_amount = ?, discount_reason = ?, discount_by_id = ?,
-         price_final = ?, payment_status = ?, updated_at = ?
+         price_final = ?, payment_status = ?, loser_customer_id = ?, winner_customer_id = ?, updated_at = ?
        WHERE id = ?`
     ).run(
       input.endTime,
@@ -164,6 +171,8 @@ export function endGame(input: EndGameInput): GameEntity {
       discount.discountAmount > 0 ? input.discountByUserId ?? input.performedByUserId : null,
       discount.priceFinal,
       input.paymentStatus,
+      loserCustomerId,
+      winnerCustomerId ?? null,
       now,
       input.gameId
     );
@@ -172,7 +181,7 @@ export function endGame(input: EndGameInput): GameEntity {
 
     if (input.paymentStatus === "paid") {
       settlePaymentForGames(db, {
-        customerId: before.loserCustomerId,
+        customerId: loserCustomerId,
         gameIds: [input.gameId],
         amount: discount.priceFinal,
         method: input.paymentMethod!,
@@ -183,7 +192,7 @@ export function endGame(input: EndGameInput): GameEntity {
     } else if (input.paymentStatus === "collateral") {
       insertCollateralItem(db, {
         gameId: input.gameId,
-        customerId: before.loserCustomerId,
+        customerId: loserCustomerId,
         itemDescription: input.collateralDescription!,
         heldByUserId: input.performedByUserId,
       });
@@ -376,7 +385,7 @@ export function getTableTiles(): TableTileView[] {
                   lc.display_name AS loser_name, wc.display_name AS winner_name
            FROM games g
            JOIN game_types gt ON gt.id = g.game_type_id
-           JOIN customers lc ON lc.id = g.loser_customer_id
+           LEFT JOIN customers lc ON lc.id = g.loser_customer_id
            LEFT JOIN customers wc ON wc.id = g.winner_customer_id
            WHERE g.table_id = ? AND g.end_time IS NULL AND g.reversed = 0
            ORDER BY g.start_time DESC LIMIT 1`
@@ -396,8 +405,8 @@ export function getTableTiles(): TableTileView[] {
           gameTypeName: gameRow.game_type_name,
           gameTypeCode: gameRow.game_type_code,
           startTime: gameRow.start_time,
-          loserCustomerId: gameRow.loser_customer_id,
-          loserName: gameRow.loser_name,
+          loserCustomerId: gameRow.loser_customer_id ?? null,
+          loserName: gameRow.loser_name ?? null,
           winnerCustomerId: gameRow.winner_customer_id,
           winnerName: gameRow.winner_name,
           blockPrice: block.blockPrice,
@@ -475,7 +484,7 @@ export function getIdleAlerts(): IdleAlertItem[] {
        FROM games g
        JOIN tables t ON t.id = g.table_id
        JOIN game_types gt ON gt.id = g.game_type_id
-       JOIN customers lc ON lc.id = g.loser_customer_id
+       LEFT JOIN customers lc ON lc.id = g.loser_customer_id
        WHERE g.end_time IS NULL AND g.reversed = 0`
     )
     .all() as any[];
@@ -491,11 +500,61 @@ export function getIdleAlerts(): IdleAlertItem[] {
         tableNumber: row.table_number,
         tableLabel: row.table_label,
         gameTypeName: row.game_type_name,
-        loserName: row.loser_name,
+        loserName: row.loser_name ?? null,
         minutesElapsed: idle.minutesElapsed,
         thresholdMinutes: idle.thresholdMinutes,
       });
     }
   }
   return alerts;
+}
+
+/**
+ * The "register/notebook" view for a single table: how many rounds it's
+ * played (today and all-time) plus a scrollable history, each row already
+ * carrying the joined game-type and customer display names the UI needs —
+ * no separate lookups required per row.
+ */
+export function getTableHistory(tableId: number): TableHistoryView {
+  const db = getDb();
+  const todayStart = startOfDay(new Date()).toISOString();
+
+  const rows = db
+    .prepare(
+      `SELECT g.id AS game_id, gt.name AS game_type_name, g.start_time, g.end_time,
+              g.duration_billed_minutes, g.price_final, g.payment_status, g.reversed,
+              lc.display_name AS loser_name, wc.display_name AS winner_name
+       FROM games g
+       JOIN game_types gt ON gt.id = g.game_type_id
+       LEFT JOIN customers lc ON lc.id = g.loser_customer_id
+       LEFT JOIN customers wc ON wc.id = g.winner_customer_id
+       WHERE g.table_id = ?
+       ORDER BY g.start_time DESC
+       LIMIT 200`
+    )
+    .all(tableId) as any[];
+
+  const totalTodayRow = db
+    .prepare(`SELECT COUNT(*) AS c FROM games WHERE table_id = ? AND reversed = 0 AND start_time >= ?`)
+    .get(tableId, todayStart) as { c: number };
+  const totalAllTimeRow = db
+    .prepare(`SELECT COUNT(*) AS c FROM games WHERE table_id = ? AND reversed = 0`)
+    .get(tableId) as { c: number };
+
+  return {
+    items: rows.map((row) => ({
+      gameId: row.game_id,
+      gameTypeName: row.game_type_name,
+      startTime: row.start_time,
+      endTime: row.end_time,
+      durationBilledMinutes: row.duration_billed_minutes,
+      priceFinal: row.price_final,
+      paymentStatus: row.payment_status,
+      loserName: row.loser_name ?? null,
+      winnerName: row.winner_name ?? null,
+      reversed: !!row.reversed,
+    })),
+    totalGamesToday: totalTodayRow.c,
+    totalGamesAllTime: totalAllTimeRow.c,
+  };
 }

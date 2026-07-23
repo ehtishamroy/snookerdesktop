@@ -82,8 +82,8 @@ export interface CurrentGameView {
   gameTypeName: string;
   gameTypeCode: GameTypeCode;
   startTime: string;
-  loserCustomerId: number;
-  loserName: string;
+  loserCustomerId: number | null;
+  loserName: string | null;
   winnerCustomerId: number | null;
   winnerName: string | null;
   /** The block price/duration resolved at this round's START time (decision #2) — not necessarily today's active price. */
@@ -113,9 +113,28 @@ export interface IdleAlertItem {
   tableNumber: number;
   tableLabel: string;
   gameTypeName: string;
-  loserName: string;
+  loserName: string | null;
   minutesElapsed: number;
   thresholdMinutes: number;
+}
+
+export interface TableHistoryItemView {
+  gameId: number;
+  gameTypeName: string;
+  startTime: string;
+  endTime: string | null;
+  durationBilledMinutes: number | null;
+  priceFinal: number;
+  paymentStatus: PaymentStatus;
+  loserName: string | null;
+  winnerName: string | null;
+  reversed: boolean;
+}
+
+export interface TableHistoryView {
+  items: TableHistoryItemView[];
+  totalGamesToday: number;
+  totalGamesAllTime: number;
 }
 
 export interface PerTableRevenueRow {
@@ -212,7 +231,7 @@ export interface StartGameInput {
   tableId: number;
   gameTypeId: number;
   startTime: string;
-  loserCustomerId: number;
+  loserCustomerId?: number | null;
   winnerCustomerId?: number | null;
   createdByUserId: number;
   shiftId: number;
@@ -229,6 +248,9 @@ export interface EndGameInput {
   discountByUserId?: number;
   paymentMethod?: PaymentMethod;
   collateralDescription?: string;
+  /** Set (or change) who the round is attributed to as part of ending it, if it wasn't set already during the round. */
+  loserCustomerId?: number | null;
+  winnerCustomerId?: number | null;
   performedByUserId: number;
   shiftId: number;
 }
@@ -337,6 +359,7 @@ export interface DesktopApi {
     getDashboardSummary(): Promise<DashboardSummary>;
     list(): Promise<TableEntity[]>;
     setActive(input: SetTableActiveInput): Promise<TableEntity>;
+    getHistory(tableId: number): Promise<TableHistoryView>;
   };
   gameTypes: {
     list(tableType?: TableType): Promise<GameTypeEntity[]>;
@@ -407,6 +430,7 @@ export const IPC_CHANNELS = {
   tablesGetDashboardSummary: "tables:getDashboardSummary",
   tablesList: "tables:list",
   tablesSetActive: "tables:setActive",
+  tablesGetHistory: "tables:getHistory",
   gameTypesList: "gameTypes:list",
   pricingRulesGetActive: "pricingRules:getActive",
   pricingRulesGetHistory: "pricingRules:getHistory",

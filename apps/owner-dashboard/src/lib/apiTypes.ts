@@ -52,8 +52,8 @@ export interface ActiveGameSummary {
   gameTypeId: number;
   gameTypeName: string;
   startTime: string; // ISO
-  loserCustomerId: number;
-  loserCustomerName: string;
+  loserCustomerId: number | null;
+  loserCustomerName: string | null;
   blockDurationMinutes: number;
   isIdleAlert: boolean;
 }

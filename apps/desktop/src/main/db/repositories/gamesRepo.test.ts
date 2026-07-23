@@ -40,7 +40,10 @@ describe("gamesRepo (local-first offline counter flow)", () => {
     const shift = shiftsRepo.openShiftForUser(ownerId);
     const customer = customersRepo.createNishaniCustomer({ nishaniDescription: "Red shirt, table 3 regular" });
 
-    const startTime = new Date("2026-07-23T10:00:00.000Z");
+    // Pricing rules are seeded with effective_from = the moment the DB was
+    // created, so the game's start time must be at/after that — a fixed
+    // calendar date would eventually collide with "today" and fail (it has).
+    const startTime = new Date();
     const game = gamesRepo.startGame({
       tableId: 1,
       gameTypeId: 1, // 6 Ball, standard table: Rs. 100 / 25 min
@@ -123,10 +126,11 @@ describe("gamesRepo (local-first offline counter flow)", () => {
     const shift = shiftsRepo.openShiftForUser(ownerId);
     const customer = customersRepo.createCustomer({ displayName: "Bilal" });
 
+    const startTime = new Date();
     const game = gamesRepo.startGame({
       tableId: 3,
       gameTypeId: 5, // Century: Rs. 600 / 60 min
-      startTime: new Date("2026-07-23T09:00:00.000Z").toISOString(),
+      startTime: startTime.toISOString(),
       loserCustomerId: customer.id,
       createdByUserId: ownerId,
       shiftId: shift.id,
@@ -134,7 +138,7 @@ describe("gamesRepo (local-first offline counter flow)", () => {
 
     const ended = gamesRepo.endGame({
       gameId: game.id,
-      endTime: new Date("2026-07-23T09:50:00.000Z").toISOString(),
+      endTime: new Date(startTime.getTime() + 50 * 60_000).toISOString(),
       paymentStatus: "paid",
       paymentMethod: "easypaisa",
       discountAmount: 550, // a huge discount on a Rs. 600 game, no threshold blocks it
@@ -146,6 +150,61 @@ describe("gamesRepo (local-first offline counter flow)", () => {
 
     expect(ended.discountAmount).toBe(550);
     expect(ended.priceFinal).toBe(50);
+
+    client.closeDb();
+    fs.rmSync(dbPath, { force: true });
+    fs.rmSync(`${dbPath}-wal`, { force: true });
+    fs.rmSync(`${dbPath}-shm`, { force: true });
+  });
+
+  it("starts a game with no player name at all, requires one before it can be ended, then accepts a name set mid-game", async () => {
+    const { client, gamesRepo, customersRepo, shiftsRepo } = await freshModules();
+    const db = client.getDb();
+    const ownerId = (db.prepare("SELECT id FROM users WHERE username = 'owner'").get() as { id: number }).id;
+    const shift = shiftsRepo.openShiftForUser(ownerId);
+
+    const startTime = new Date();
+    const game = gamesRepo.startGame({
+      tableId: 4,
+      gameTypeId: 1,
+      startTime: startTime.toISOString(),
+      createdByUserId: ownerId,
+      shiftId: shift.id,
+    });
+
+    expect(game.loserCustomerId).toBeNull();
+
+    // A busy counter can start the clock immediately and only note who's
+    // playing later — but "later" still has to happen before checkout.
+    expect(() =>
+      gamesRepo.endGame({
+        gameId: game.id,
+        endTime: new Date(startTime.getTime() + 10 * 60_000).toISOString(),
+        paymentStatus: "paid",
+        paymentMethod: "cash",
+        performedByUserId: ownerId,
+        shiftId: shift.id,
+      })
+    ).toThrow(/player name/i);
+
+    const customer = customersRepo.createCustomer({ displayName: "Set mid-game" });
+    const updated = gamesRepo.updateGame({
+      gameId: game.id,
+      patch: { loserCustomerId: customer.id },
+      performedByUserId: ownerId,
+      reason: "Set player identity during round",
+    });
+    expect(updated.loserCustomerId).toBe(customer.id);
+
+    const ended = gamesRepo.endGame({
+      gameId: game.id,
+      endTime: new Date(startTime.getTime() + 10 * 60_000).toISOString(),
+      paymentStatus: "paid",
+      paymentMethod: "cash",
+      performedByUserId: ownerId,
+      shiftId: shift.id,
+    });
+    expect(ended.loserCustomerId).toBe(customer.id);
 
     client.closeDb();
     fs.rmSync(dbPath, { force: true });

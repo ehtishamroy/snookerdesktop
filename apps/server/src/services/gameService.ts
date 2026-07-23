@@ -10,7 +10,7 @@ export interface CreateGameInput {
   tableId: number;
   gameTypeId: number;
   startTime: string;
-  loserCustomerId: number;
+  loserCustomerId?: number | null;
   winnerCustomerId?: number | null;
   paymentStatus?: PaymentStatus;
   discountAmount?: number;
@@ -55,7 +55,9 @@ export async function createGame(
   if (!gameType) throw ApiError.badRequest(`Game type ${input.gameTypeId} does not exist`);
   if (!gameType.isActive) throw ApiError.badRequest(`Game type ${gameType.name} is not active`);
 
-  await assertNotMergedAway(prisma, input.loserCustomerId, "Loser");
+  if (input.loserCustomerId != null) {
+    await assertNotMergedAway(prisma, input.loserCustomerId, "Loser");
+  }
   if (input.winnerCustomerId != null) {
     await assertNotMergedAway(prisma, input.winnerCustomerId, "Winner");
   }
@@ -89,7 +91,7 @@ export async function createGame(
         discountReason: input.discountReason,
         discountById: discountAmount > 0 ? createdByUserId : null,
         priceFinal,
-        loserCustomerId: input.loserCustomerId,
+        loserCustomerId: input.loserCustomerId ?? null,
         winnerCustomerId: input.winnerCustomerId ?? null,
         paymentStatus: input.paymentStatus ?? "pending",
         createdByUserId,
@@ -118,6 +120,7 @@ export interface UpdateGameInput {
   endTime?: string;
   tableId?: number;
   gameTypeId?: number;
+  loserCustomerId?: number | null;
   winnerCustomerId?: number | null;
   paymentStatus?: PaymentStatus;
   discountAmount?: number;
@@ -159,6 +162,9 @@ export async function updateGame(
     gameTypeId = gameType.id;
     repriceNeeded = true;
   }
+  if (input.loserCustomerId !== undefined && input.loserCustomerId !== null) {
+    await assertNotMergedAway(prisma, input.loserCustomerId, "Loser");
+  }
   if (input.winnerCustomerId !== undefined && input.winnerCustomerId !== null) {
     await assertNotMergedAway(prisma, input.winnerCustomerId, "Winner");
   }
@@ -168,6 +174,11 @@ export async function updateGame(
     throw ApiError.badRequest("Invalid endTime");
   }
   const endingNow = input.endTime !== undefined && game.endTime === null && endTime !== null;
+
+  const loserCustomerId = input.loserCustomerId !== undefined ? input.loserCustomerId : game.loserCustomerId;
+  if (endingNow && loserCustomerId == null) {
+    throw ApiError.badRequest("A player name (or a temporary/nishani description) is required before ending the game");
+  }
 
   let priceOriginal = game.priceOriginal;
   let durationActualMinutes = game.durationActualMinutes;
@@ -218,6 +229,7 @@ export async function updateGame(
         tableId,
         gameTypeId,
         endTime: endTime ?? undefined,
+        loserCustomerId: input.loserCustomerId !== undefined ? input.loserCustomerId : undefined,
         winnerCustomerId:
           input.winnerCustomerId !== undefined ? input.winnerCustomerId : undefined,
         paymentStatus: input.paymentStatus ?? undefined,

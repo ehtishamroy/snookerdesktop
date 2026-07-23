@@ -66,7 +66,7 @@ export interface GameEntity {
   discountReason: string | null;
   discountByUserId: number | null;
   priceFinal: number;
-  loserCustomerId: number;
+  loserCustomerId: number | null;
   winnerCustomerId: number | null;
   paymentStatus: PaymentStatus;
   createdByUserId: number;

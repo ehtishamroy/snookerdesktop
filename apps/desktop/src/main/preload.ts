@@ -26,6 +26,7 @@ const api: DesktopApi = {
     getDashboardSummary: () => invoke(IPC_CHANNELS.tablesGetDashboardSummary),
     list: () => invoke(IPC_CHANNELS.tablesList),
     setActive: (input) => invoke(IPC_CHANNELS.tablesSetActive, input),
+    getHistory: (tableId) => invoke(IPC_CHANNELS.tablesGetHistory, tableId),
   },
   gameTypes: {
     list: (tableType) => invoke(IPC_CHANNELS.gameTypesList, tableType),

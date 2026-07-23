@@ -60,7 +60,7 @@ export function TableTile({ tile, onClick }: { tile: TableTileView; onClick: () 
         <div>
           <div className="text-sm font-semibold opacity-90">{currentGame.gameTypeName}</div>
           <div className="truncate text-base font-bold">
-            {currentGame.loserName}
+            {currentGame.loserName ?? "No name set"}
             {currentGame.winnerName ? ` vs ${currentGame.winnerName}` : ""}
           </div>
           <div className="mt-1 font-mono text-2xl font-extrabold tabular-nums">{formatElapsed(currentGame.startTime)}</div>

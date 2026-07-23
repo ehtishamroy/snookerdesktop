@@ -33,13 +33,57 @@ export function getDb(): Database.Database {
   const dbPath = resolveDbPath();
   db = new Database(dbPath);
   db.pragma("journal_mode = WAL");
-  db.pragma("foreign_keys = ON");
-
+  // foreign_keys stays off (better-sqlite3's default) through migration/schema
+  // setup/seeding — a mid-rebuild table rename can leave other tables'
+  // foreign key definitions transiently pointed at the renamed name, which
+  // enforcement would otherwise reject. Turned on only once everything below
+  // has settled into its final, consistent shape.
+  migrateGamesLoserNullable(db);
   db.exec(schemaSql);
 
   seedReferenceDataIfEmpty(db);
 
+  db.pragma("foreign_keys = ON");
+
   return db;
+}
+
+/**
+ * Installs from before games.loser_customer_id became nullable (a player's
+ * name is now optional at game-start and can be added during/after the
+ * round instead) still have the old NOT NULL constraint baked into their
+ * on-disk `games` table — schema.sql's `CREATE TABLE IF NOT EXISTS` can't
+ * fix that retroactively. SQLite has no ALTER COLUMN, so rebuild the table
+ * (rename, let schema.sql recreate it fresh with the new column
+ * definition, copy the old rows across, drop the rename) rather than
+ * losing whoever already has games recorded locally.
+ */
+function migrateGamesLoserNullable(database: Database.Database): void {
+  const gamesExists = database
+    .prepare(`SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'games'`)
+    .get();
+  if (!gamesExists) return;
+
+  const columns = database.prepare(`PRAGMA table_info(games)`).all() as { name: string; notnull: number }[];
+  const loserColumn = columns.find((c) => c.name === "loser_customer_id");
+  if (!loserColumn || loserColumn.notnull === 0) return;
+
+  // better-sqlite3 defaults foreign_keys to ON, which would otherwise reject
+  // the rename/rebuild below while other tables' FK definitions transiently
+  // point at whatever "games" is renamed to. getDb() doesn't turn it on
+  // until after this migration runs, but be explicit rather than rely on that.
+  database.pragma("foreign_keys = OFF");
+  database.exec(`
+    DROP INDEX IF EXISTS idx_games_loser_status;
+    DROP INDEX IF EXISTS idx_games_table_start;
+    DROP INDEX IF EXISTS idx_games_open;
+    ALTER TABLE games RENAME TO games_pre_nullable_loser;
+  `);
+  database.exec(schemaSql);
+  database.exec(`
+    INSERT INTO games SELECT * FROM games_pre_nullable_loser;
+    DROP TABLE games_pre_nullable_loser;
+  `);
 }
 
 /**

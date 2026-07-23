@@ -34,7 +34,7 @@ export const FK_FIELDS: Record<string, FkField[]> = {
   games: [
     { field: "tableId", refType: "tables", nullable: false },
     { field: "gameTypeId", refType: "game_types", nullable: false },
-    { field: "loserCustomerId", refType: "customers", nullable: false },
+    { field: "loserCustomerId", refType: "customers", nullable: true },
     { field: "winnerCustomerId", refType: "customers", nullable: true },
     { field: "discountByUserId", refType: "users", nullable: true },
     { field: "createdByUserId", refType: "users", nullable: false },

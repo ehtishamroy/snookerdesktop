@@ -4,18 +4,14 @@ import type { PaymentMethod, PaymentStatus } from "@snooker/shared";
 import { api } from "../api";
 import type { GameTypeEntity, TableTileView } from "../api";
 import { Modal } from "../components/Modal";
-import { AutosuggestInput, type AutosuggestSuggestion } from "../components/AutosuggestInput";
+import { PlayerNameField, resolveLoserCustomerId, type PlayerNameFieldState } from "../components/PlayerNameField";
+import { TimeInput12h } from "../components/TimeInput12h";
+import { formatDateTime12h } from "../lib/time";
 import { useAuthStore } from "../state/authStore";
 import { useTablesStore } from "../state/tablesStore";
 
 const PAYMENT_METHODS: PaymentMethod[] = ["cash", "easypaisa", "jazzcash", "card"];
 const PAYMENT_STATUSES: PaymentStatus[] = ["paid", "pending", "loan", "collateral", "tricked"];
-
-function toLocalDateTimeInputValue(iso: string): string {
-  const d = new Date(iso);
-  const pad = (n: number) => n.toString().padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
 
 export function RegisterPanel({ tile, onClose }: { tile: TableTileView; onClose: () => void }) {
   const session = useAuthStore((s) => s.session)!;
@@ -64,7 +60,8 @@ export function RegisterPanel({ tile, onClose }: { tile: TableTileView; onClose:
 }
 
 // ---------------------------------------------------------------------------
-// Start Game
+// Start Game — table + game type + start time only. Who's playing is added
+// later, mid-game or at checkout (see TableDetailsScreen and EndGameForm).
 // ---------------------------------------------------------------------------
 
 function StartGameForm({
@@ -91,20 +88,11 @@ function StartGameForm({
   onDone: () => void;
 }) {
   const [gameTypeId, setGameTypeId] = useState<number | null>(null);
-  const [startTime, setStartTime] = useState(toLocalDateTimeInputValue(new Date().toISOString()));
-  const [loser, setLoser] = useState<AutosuggestSuggestion | null>(null);
-  const [isNishani, setIsNishani] = useState(false);
-  const [nishaniText, setNishaniText] = useState("");
-  const [winner, setWinner] = useState<AutosuggestSuggestion | null>(null);
+  const [startTime, setStartTime] = useState<Date>(new Date());
 
   useEffect(() => {
     if (!gameTypeId && gameTypes.length > 0) setGameTypeId(gameTypes[0]!.id);
   }, [gameTypes, gameTypeId]);
-
-  async function fetchCustomerSuggestions(query: string): Promise<AutosuggestSuggestion[]> {
-    const results = await api.customers.search(query);
-    return results.map((c) => ({ id: c.id, label: c.displayName, owedAmount: c.owedAmount }));
-  }
 
   async function handleStart() {
     setError(null);
@@ -112,31 +100,12 @@ function StartGameForm({
       setError("Choose a game type");
       return;
     }
-    let loserCustomerId: number;
-    if (isNishani) {
-      if (!nishaniText.trim()) {
-        setError("Describe who this is (e.g. 'Red shirt, Table 3 regular')");
-        return;
-      }
-      setBusy(true);
-      const customer = await api.customers.createNishani({ nishaniDescription: nishaniText.trim() });
-      loserCustomerId = customer.id;
-    } else {
-      if (!loser) {
-        setError("Select or add the player who is expected to pay (the 'loser')");
-        return;
-      }
-      loserCustomerId = loser.id;
-    }
-
     setBusy(true);
     try {
       await api.games.start({
         tableId: tile.table.id,
         gameTypeId,
-        startTime: new Date(startTime).toISOString(),
-        loserCustomerId,
-        winnerCustomerId: winner?.id ?? null,
+        startTime: startTime.toISOString(),
         createdByUserId: currentUserId,
         shiftId,
       });
@@ -164,60 +133,12 @@ function StartGameForm({
 
         <div>
           <label className="field-label">Start Time</label>
-          <input type="datetime-local" className="field-input" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+          <TimeInput12h value={startTime} onChange={setStartTime} />
         </div>
 
-        {!isNishani ? (
-          <AutosuggestInput
-            label="Player / Loser Name"
-            placeholder="Type a name…"
-            fetchSuggestions={fetchCustomerSuggestions}
-            onSelect={setLoser}
-            selected={loser}
-            onClearSelection={() => setLoser(null)}
-            allowCreateNew
-            onCreateNew={async (name) => {
-              const customer = await api.customers.create({ displayName: name });
-              setLoser({ id: customer.id, label: customer.displayName });
-            }}
-            autoFocus
-          />
-        ) : (
-          <div>
-            <label className="field-label">Temporary / Nishani Description</label>
-            <input
-              className="field-input"
-              placeholder="e.g. Red shirt, Table 3 regular"
-              value={nishaniText}
-              onChange={(e) => setNishaniText(e.target.value)}
-            />
-          </div>
-        )}
-        <label className="flex items-center gap-2 text-sm font-semibold text-slate-600 dark:text-slate-300">
-          <input
-            type="checkbox"
-            checked={isNishani}
-            onChange={(e) => {
-              setIsNishani(e.target.checked);
-              setLoser(null);
-            }}
-          />
-          Don&rsquo;t know the name (use a temporary description instead)
-        </label>
-
-        <AutosuggestInput
-          label="Winner Name (optional)"
-          placeholder="Type a name…"
-          fetchSuggestions={fetchCustomerSuggestions}
-          onSelect={setWinner}
-          selected={winner}
-          onClearSelection={() => setWinner(null)}
-          allowCreateNew
-          onCreateNew={async (name) => {
-            const customer = await api.customers.create({ displayName: name });
-            setWinner({ id: customer.id, label: customer.displayName });
-          }}
-        />
+        <div className="rounded-lg bg-slate-100 px-4 py-2 text-sm text-slate-600 dark:bg-slate-700 dark:text-slate-300">
+          You can add the player&rsquo;s name any time while the game is running, or when you end it.
+        </div>
 
         {error && <div className="rounded-lg bg-red-100 px-4 py-2 text-red-800 dark:bg-red-900/40 dark:text-red-300">{error}</div>}
 
@@ -226,7 +147,7 @@ function StartGameForm({
             Cancel
           </button>
           <button className="btn-primary" onClick={handleStart} disabled={busy}>
-            {busy ? "Starting…" : "Save / Start Game"}
+            {busy ? "Starting…" : "Start Game"}
           </button>
         </div>
       </div>
@@ -252,7 +173,7 @@ function EndGameForm({
   onDone: () => void;
 }) {
   const game = tile.currentGame!;
-  const [endTime, setEndTime] = useState<string | null>(null);
+  const [endTime, setEndTime] = useState<Date | null>(null);
   const [priceOverride, setPriceOverride] = useState<number | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>("paid");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
@@ -260,6 +181,12 @@ function EndGameForm({
   const [discountMode, setDiscountMode] = useState<"amount" | "percent">("amount");
   const [discountValue, setDiscountValue] = useState<string>("");
   const [discountReason, setDiscountReason] = useState("");
+  const [playerState, setPlayerState] = useState<PlayerNameFieldState>({
+    loser: game.loserCustomerId && game.loserName ? { id: game.loserCustomerId, label: game.loserName } : null,
+    isNishani: false,
+    nishaniText: "",
+    winner: game.winnerCustomerId && game.winnerName ? { id: game.winnerCustomerId, label: game.winnerName } : null,
+  });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [nowTick, setNowTick] = useState(() => Date.now());
@@ -270,7 +197,8 @@ function EndGameForm({
     return () => clearInterval(id);
   }, [endTime]);
 
-  const effectiveEndIso = endTime ?? new Date(nowTick).toISOString();
+  const effectiveEndDate = endTime ?? new Date(nowTick);
+  const effectiveEndIso = effectiveEndDate.toISOString();
   // Uses the block price/duration already resolved by the server at this
   // round's START time (decision #2), never "today's" active price — those
   // can differ if the owner changed pricing mid-round.
@@ -299,6 +227,12 @@ function EndGameForm({
     }
     setBusy(true);
     try {
+      const loserCustomerId = await resolveLoserCustomerId(playerState);
+      if (!loserCustomerId) {
+        setError("Add a player name (or a temporary/nishani description) before ending the game");
+        setBusy(false);
+        return;
+      }
       await api.games.end({
         gameId: game.gameId,
         endTime: effectiveEndIso,
@@ -310,6 +244,8 @@ function EndGameForm({
         discountByUserId: currentUserId,
         paymentMethod: paymentStatus === "paid" ? paymentMethod : undefined,
         collateralDescription: paymentStatus === "collateral" ? collateralDescription.trim() : undefined,
+        loserCustomerId,
+        winnerCustomerId: playerState.winner?.id ?? null,
         performedByUserId: currentUserId,
         shiftId,
       });
@@ -325,36 +261,20 @@ function EndGameForm({
     <Modal title={`Table ${tile.table.tableNumber} — ${game.gameTypeName}`} onClose={onClose}>
       <div className="space-y-4">
         <div className="rounded-lg bg-slate-100 px-4 py-3 text-sm dark:bg-slate-700">
-          <div>
-            <span className="font-semibold">Player:</span> {game.loserName}
-            {game.winnerName && (
-              <>
-                {" "}
-                <span className="font-semibold">vs</span> {game.winnerName}
-              </>
-            )}
-          </div>
-          <div>
-            <span className="font-semibold">Started:</span> {new Date(game.startTime).toLocaleString()}
-          </div>
+          <span className="font-semibold">Started:</span> {formatDateTime12h(game.startTime)}
         </div>
+
+        <PlayerNameField state={playerState} onChange={setPlayerState} autoFocus={!game.loserName} />
 
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="field-label">End Time</label>
-            <div className="flex gap-2">
-              <input
-                type="datetime-local"
-                className="field-input"
-                value={toLocalDateTimeInputValue(effectiveEndIso)}
-                onChange={(e) => setEndTime(new Date(e.target.value).toISOString())}
-              />
-            </div>
+            <TimeInput12h value={effectiveEndDate} onChange={setEndTime} />
             {!endTime && (
               <button
                 type="button"
                 className="btn-secondary mt-2 w-full py-2 text-base"
-                onClick={() => setEndTime(new Date().toISOString())}
+                onClick={() => setEndTime(new Date())}
               >
                 End Game Now
               </button>

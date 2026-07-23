@@ -99,6 +99,7 @@ export function registerIpcHandlers(syncEngine: SyncEngine): void {
     requireRole(input.performedByUserId, ["owner"]);
     return tablesRepo.setTableActive(input);
   });
+  ipcMain.handle(IPC_CHANNELS.tablesGetHistory, (_event, tableId: number) => gamesRepo.getTableHistory(tableId));
 
   // ---- Game types / pricing --------------------------------------------------
   ipcMain.handle(IPC_CHANNELS.gameTypesList, (_event, tableType?: TableType) =>
