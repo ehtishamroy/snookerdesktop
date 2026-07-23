@@ -9,6 +9,7 @@
     "build": "tsc --noEmit -p tsconfig.json && node esbuild.config.mjs",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
+    "lint": "echo \"(no lint configured for server)\"",
     "test": "vitest run",
     "test:watch": "vitest",
     "prisma:generate": "prisma generate",
@@ -44,5 +45,8 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   }
 }
