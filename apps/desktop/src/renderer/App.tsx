@@ -22,6 +22,7 @@ const NAV_ITEMS: { key: ScreenName; label: string; ownerManagerOnly?: boolean }[
 export default function App() {
   const session = useAuthStore((s) => s.session);
   const pendingShiftClose = useAuthStore((s) => s.pendingShiftClose);
+  const pendingShiftCloseMode = useAuthStore((s) => s.pendingShiftCloseMode);
   const restoreSession = useAuthStore((s) => s.restoreSession);
   const [screen, setScreen] = useState<ScreenName>("dashboard");
   const isOwnerOrManager = useIsOwnerOrManager();
@@ -61,7 +62,7 @@ export default function App() {
           </div>
           <button
             className="btn-secondary py-2 px-4 text-base"
-            onClick={() => useAuthStore.getState().openPendingShiftClose()}
+            onClick={() => useAuthStore.getState().openPendingShiftClose("logout")}
           >
             Log Out
           </button>
@@ -76,7 +77,7 @@ export default function App() {
         {screen === "admin" && isOwnerOrManager && <AdminSettingsScreen />}
       </main>
 
-      {pendingShiftClose && <ShiftCloseScreen mode="logout" />}
+      {pendingShiftClose && <ShiftCloseScreen mode={pendingShiftCloseMode} />}
     </div>
   );
 }

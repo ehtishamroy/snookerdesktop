@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { computeBilling, minutesElapsed } from "@snooker/shared";
 import type { PaymentMethod, PaymentStatus } from "@snooker/shared";
 import { api } from "../api";
-import type { GameTypeEntity, PricingRuleEntity, TableTileView } from "../api";
+import type { GameTypeEntity, TableTileView } from "../api";
 import { Modal } from "../components/Modal";
 import { AutosuggestInput, type AutosuggestSuggestion } from "../components/AutosuggestInput";
 import { useAuthStore } from "../state/authStore";
@@ -22,13 +22,11 @@ export function RegisterPanel({ tile, onClose }: { tile: TableTileView; onClose:
   const refreshTiles = useTablesStore((s) => s.refresh);
 
   const [gameTypes, setGameTypes] = useState<GameTypeEntity[]>([]);
-  const [pricingRules, setPricingRules] = useState<PricingRuleEntity[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     void api.gameTypes.list(tile.table.tableType).then(setGameTypes);
-    void api.pricingRules.getActive(tile.table.tableType).then(setPricingRules);
   }, [tile.table.tableType]);
 
   if (tile.status === "occupied" && tile.currentGame) {
@@ -37,7 +35,6 @@ export function RegisterPanel({ tile, onClose }: { tile: TableTileView; onClose:
         tile={tile}
         currentUserId={session.user.id}
         shiftId={session.shift.id}
-        pricingRules={pricingRules}
         onClose={onClose}
         onDone={async () => {
           await refreshTiles();
@@ -245,14 +242,12 @@ function EndGameForm({
   tile,
   currentUserId,
   shiftId,
-  pricingRules,
   onClose,
   onDone,
 }: {
   tile: TableTileView;
   currentUserId: number;
   shiftId: number;
-  pricingRules: PricingRuleEntity[];
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -275,13 +270,17 @@ function EndGameForm({
     return () => clearInterval(id);
   }, [endTime]);
 
-  const rule = pricingRules.find((r) => r.gameTypeId === game.gameTypeId);
   const effectiveEndIso = endTime ?? new Date(nowTick).toISOString();
+  // Uses the block price/duration already resolved by the server at this
+  // round's START time (decision #2), never "today's" active price — those
+  // can differ if the owner changed pricing mid-round.
   const billingPreview = useMemo(() => {
-    if (!rule) return null;
     const durationActual = minutesElapsed(new Date(game.startTime), new Date(effectiveEndIso));
-    return computeBilling({ blockPrice: rule.price, blockDurationMinutes: rule.durationMinutes }, Math.max(0, durationActual));
-  }, [rule, game.startTime, effectiveEndIso]);
+    return computeBilling(
+      { blockPrice: game.blockPrice, blockDurationMinutes: game.blockDurationMinutes },
+      Math.max(0, durationActual)
+    );
+  }, [game.blockPrice, game.blockDurationMinutes, game.startTime, effectiveEndIso]);
 
   const priceOriginal = priceOverride ?? billingPreview?.priceOriginal ?? 0;
   const discountAmount =

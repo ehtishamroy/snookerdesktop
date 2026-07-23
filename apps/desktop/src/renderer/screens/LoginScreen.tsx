@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { useAuthStore } from "../state/authStore";
 
 /** Username + PIN login. Success opens (or reuses) the caller's shift — shift open = login (decision #5/#12). */
@@ -9,7 +9,7 @@ export function LoginScreen() {
   const isBusy = useAuthStore((s) => s.isBusy);
   const error = useAuthStore((s) => s.error);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!username.trim() || !pin.trim()) return;
     try {

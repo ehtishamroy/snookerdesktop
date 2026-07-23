@@ -4,15 +4,14 @@ import electron from "vite-plugin-electron/simple";
 import { fileURLToPath, URL } from "node:url";
 
 // Single Vite config drives both halves of the app:
-//  - the React renderer (this file's top-level config: root = src/renderer)
+//  - the React renderer, rooted at the package root (index.html lives here,
+//    with `<script src="/src/renderer/main.tsx">` pointing into src/renderer)
 //  - the Electron main process + preload script, built/watched by
 //    vite-plugin-electron so `pnpm dev` is one command that rebuilds and
 //    reloads the main process on change and spawns/respawns the Electron
 //    window automatically (this satisfies "dev runs vite + electron
 //    concurrently" without a hand-rolled concurrently/wait-on script).
 export default defineConfig({
-  root: fileURLToPath(new URL("./src/renderer", import.meta.url)),
-  publicDir: fileURLToPath(new URL("./public", import.meta.url)),
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src/renderer", import.meta.url)),
@@ -20,7 +19,7 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: fileURLToPath(new URL("./dist", import.meta.url)),
+    outDir: "dist",
     emptyOutDir: true,
   },
   plugins: [
@@ -30,7 +29,7 @@ export default defineConfig({
         entry: fileURLToPath(new URL("./src/main/index.ts", import.meta.url)),
         vite: {
           build: {
-            outDir: fileURLToPath(new URL("./dist-electron", import.meta.url)),
+            outDir: "dist-electron",
             rollupOptions: {
               // better-sqlite3 ships a native .node binding — never bundle it,
               // always require() it at runtime from node_modules.
@@ -43,7 +42,7 @@ export default defineConfig({
         input: fileURLToPath(new URL("./src/main/preload.ts", import.meta.url)),
         vite: {
           build: {
-            outDir: fileURLToPath(new URL("./dist-electron", import.meta.url)),
+            outDir: "dist-electron",
             rollupOptions: {
               external: ["electron"],
             },

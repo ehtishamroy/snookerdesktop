@@ -9,10 +9,11 @@
  * a request, matching docs/API_CONTRACT.md's role notes).
  */
 import { dialog, ipcMain } from "electron";
-import type { Role } from "@snooker/shared";
+import type { Role, TableType } from "@snooker/shared";
 import { IPC_CHANNELS } from "../../ipc/contract";
 import type {
   AddCollateralInput,
+  AppSettings,
   AuthSession,
   CreateCustomerInput,
   CreateExpenseInput,
@@ -100,10 +101,12 @@ export function registerIpcHandlers(syncEngine: SyncEngine): void {
   });
 
   // ---- Game types / pricing --------------------------------------------------
-  ipcMain.handle(IPC_CHANNELS.gameTypesList, (_event, tableType) =>
+  ipcMain.handle(IPC_CHANNELS.gameTypesList, (_event, tableType?: TableType) =>
     tableType ? gameTypesRepo.listGameTypesForTableType(tableType) : gameTypesRepo.listGameTypes()
   );
-  ipcMain.handle(IPC_CHANNELS.pricingRulesGetActive, (_event, tableType) => pricingRulesRepo.getActivePricingRules(tableType));
+  ipcMain.handle(IPC_CHANNELS.pricingRulesGetActive, (_event, tableType?: TableType) =>
+    pricingRulesRepo.getActivePricingRules(tableType)
+  );
   ipcMain.handle(IPC_CHANNELS.pricingRulesGetHistory, (_event, filter: PricingRuleHistoryFilter) =>
     pricingRulesRepo.getPricingRuleHistory(filter ?? {})
   );
@@ -141,7 +144,11 @@ export function registerIpcHandlers(syncEngine: SyncEngine): void {
 
   // ---- Reports / audit -----------------------------------------------------------
   ipcMain.handle(IPC_CHANNELS.reportsGetLocalSummary, () => reportsRepo.getLocalSummary());
-  ipcMain.handle(IPC_CHANNELS.reportsGetAuditLog, (_event, filter) => auditLogRepo.getAuditLog(getDb(), filter ?? {}));
+  ipcMain.handle(
+    IPC_CHANNELS.reportsGetAuditLog,
+    (_event, filter?: { entityType?: string; entityId?: number; from?: string; to?: string }) =>
+      auditLogRepo.getAuditLog(getDb(), filter ?? {})
+  );
 
   // ---- Users (owner only for mutations, per API_CONTRACT.md) ------------------
   ipcMain.handle(IPC_CHANNELS.usersList, () => usersRepo.listUsers());
@@ -160,7 +167,7 @@ export function registerIpcHandlers(syncEngine: SyncEngine): void {
 
   // ---- Settings ----------------------------------------------------------------------
   ipcMain.handle(IPC_CHANNELS.settingsGet, () => getSettings());
-  ipcMain.handle(IPC_CHANNELS.settingsUpdate, (_event, patch) => updateSettings(patch ?? {}));
+  ipcMain.handle(IPC_CHANNELS.settingsUpdate, (_event, patch?: Partial<AppSettings>) => updateSettings(patch ?? {}));
   ipcMain.handle(IPC_CHANNELS.settingsChooseBackupFolder, async () => {
     const result = await dialog.showOpenDialog({ properties: ["openDirectory", "createDirectory"] });
     if (result.canceled || result.filePaths.length === 0) return null;

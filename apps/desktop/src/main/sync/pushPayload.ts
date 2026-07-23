@@ -23,13 +23,14 @@
 import type Database from "better-sqlite3";
 import { resolveServerId } from "../db/entityMap";
 
-interface FkField {
+export interface FkField {
   field: string;
   refType: string;
   nullable: boolean;
 }
 
-const FK_FIELDS: Record<string, FkField[]> = {
+/** Also reused by sync/pullMerge.ts, in the opposite direction (server id -> local id). */
+export const FK_FIELDS: Record<string, FkField[]> = {
   games: [
     { field: "tableId", refType: "tables", nullable: false },
     { field: "gameTypeId", refType: "game_types", nullable: false },

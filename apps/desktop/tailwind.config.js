@@ -1,5 +1,6 @@
+// CommonJS on purpose — see postcss.config.js's header comment.
 /** @type {import('tailwindcss').Config} */
-export default {
+module.exports = {
   content: ["./src/renderer/**/*.{ts,tsx,html}", "./index.html"],
   darkMode: "media",
   theme: {

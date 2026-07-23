@@ -8,13 +8,15 @@ interface AuthState {
   error: string | null;
   /** Set while the Logout/Close-Shift flow is showing the Z-report before the session actually ends. */
   pendingShiftClose: boolean;
+  /** Which button triggered the flow — both converge on the same close-shift action (decision #5/#6), only the modal's title differs. */
+  pendingShiftCloseMode: "logout" | "close-shift";
 
   login(username: string, pin: string): Promise<void>;
   restoreSession(): Promise<void>;
   previewShiftClose(): Promise<ZReport>;
   confirmShiftClose(declaredCashAmount: number): Promise<ZReport>;
   clearError(): void;
-  openPendingShiftClose(): void;
+  openPendingShiftClose(mode?: "logout" | "close-shift"): void;
   cancelPendingShiftClose(): void;
 }
 
@@ -23,6 +25,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isBusy: false,
   error: null,
   pendingShiftClose: false,
+  pendingShiftCloseMode: "logout",
 
   async login(username, pin) {
     set({ isBusy: true, error: null });
@@ -40,8 +43,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (session) set({ session });
   },
 
-  openPendingShiftClose() {
-    set({ pendingShiftClose: true });
+  openPendingShiftClose(mode = "logout") {
+    set({ pendingShiftClose: true, pendingShiftCloseMode: mode });
   },
   cancelPendingShiftClose() {
     set({ pendingShiftClose: false });

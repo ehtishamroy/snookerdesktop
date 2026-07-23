@@ -86,6 +86,8 @@ export interface CurrentGameView {
   loserName: string;
   winnerCustomerId: number | null;
   winnerName: string | null;
+  /** The block price/duration resolved at this round's START time (decision #2) — not necessarily today's active price. */
+  blockPrice: number;
   blockDurationMinutes: number;
   elapsedMinutes: number;
   isIdleAlert: boolean;

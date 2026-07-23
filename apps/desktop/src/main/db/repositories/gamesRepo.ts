@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { startOfDay } from "date-fns";
 import type Database from "better-sqlite3";
-import type { GameEntity, PaymentEntity, PaymentStatus } from "@snooker/shared";
+import type { GameEntity, PaymentEntity } from "@snooker/shared";
 import { applyDiscount, checkIdleAlert, computeBilling, minutesElapsed } from "@snooker/shared";
 import { getDb } from "../client";
 import { enqueueSyncWrite } from "./syncQueueRepo";
@@ -400,6 +400,7 @@ export function getTableTiles(): TableTileView[] {
           loserName: gameRow.loser_name,
           winnerCustomerId: gameRow.winner_customer_id,
           winnerName: gameRow.winner_name,
+          blockPrice: block.blockPrice,
           blockDurationMinutes: block.blockDurationMinutes,
           elapsedMinutes: idle.minutesElapsed,
           isIdleAlert: idle.isIdleAlert,
