@@ -23,8 +23,21 @@
 
 type Row = Record<string, any>;
 
+// A JSON round-trip clone would turn Date instances into strings, which
+// breaks any service code that calls .getTime()/.toISOString() on a value
+// read back from the fake DB (real Prisma always returns actual Date
+// objects for DateTime columns). Clone recursively instead, preserving Date
+// instances as Dates.
 function clone<T>(value: T): T {
-  return value === undefined ? value : JSON.parse(JSON.stringify(value));
+  if (value === undefined || value === null) return value;
+  if (value instanceof Date) return new Date(value.getTime()) as unknown as T;
+  if (Array.isArray(value)) return value.map((v) => clone(v)) as unknown as T;
+  if (typeof value === "object") {
+    const out: Row = {};
+    for (const [k, v] of Object.entries(value as Row)) out[k] = clone(v);
+    return out as T;
+  }
+  return value;
 }
 
 function isEqual(a: unknown, b: unknown): boolean {
@@ -344,7 +357,9 @@ export class FakeDb {
   tableStatusLog = new FakeModel(this, "tableStatusLog", (d) => ({ statusTo: null, ...d }));
 
   model(name: string): FakeModel {
-    return (this as unknown as Record<string, FakeModel>)[name];
+    const model = (this as unknown as Record<string, FakeModel | undefined>)[name];
+    if (!model) throw new Error(`Unknown fake model: ${name}`);
+    return model;
   }
 
   async $transaction<T>(fn: (tx: this) => Promise<T>): Promise<T> {

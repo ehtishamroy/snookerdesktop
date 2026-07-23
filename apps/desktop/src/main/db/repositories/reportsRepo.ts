@@ -3,7 +3,7 @@ import { buildZReport } from "@snooker/shared";
 import { getDb } from "../client";
 import { countOpenCollateral } from "./collateralRepo";
 import { previewZReport } from "./shiftsRepo";
-import { getCurrentSession } from "../session";
+import { getCurrentSession } from "../../session";
 import type { LocalReportsSummary, PerTableRevenueRow } from "../../../ipc/contract";
 
 /** ReportsScreen's local subset (spec §5.4, scoped to what's meaningful offline on a single counter). */

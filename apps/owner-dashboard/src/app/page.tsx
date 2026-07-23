@@ -70,7 +70,7 @@ function OwnerDashboard() {
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {tables.map((table) => (
-              <TableTile key={table.id} table={table} onChanged={() => refreshTables()} />
+              <TableTile key={table.id} table={table} onChanged={() => { void refreshTables(); }} />
             ))}
           </div>
         )}

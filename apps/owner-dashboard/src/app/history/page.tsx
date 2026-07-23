@@ -49,7 +49,7 @@ function HistoryPageContent() {
         <h1 className="page-title">Reversal &amp; edit history</h1>
         <p className="page-subtitle">
           Every corrected or reversed entry, with who/when/why (spec §7). Managers see the full log, same as owners —
-          see README for the "partial" interpretation.
+          see README for the &quot;partial&quot; interpretation.
         </p>
       </div>
 

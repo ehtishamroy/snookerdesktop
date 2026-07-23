@@ -83,9 +83,11 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     } catch {
       body = undefined;
     }
-    const message =
-      (body && typeof body === "object" && "message" in body && String((body as any).message)) ||
-      `Request failed (${response.status})`;
+    let message = `Request failed (${response.status})`;
+    if (body && typeof body === "object" && "message" in body) {
+      const raw = (body as { message?: unknown }).message;
+      if (typeof raw === "string" && raw.length > 0) message = raw;
+    }
     throw new ApiError(response.status, message, body);
   }
 

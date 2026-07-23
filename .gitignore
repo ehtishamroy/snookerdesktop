@@ -16,3 +16,4 @@ out/
 coverage/
 generated/
 .pnpm-store/
+*.tsbuildinfo
