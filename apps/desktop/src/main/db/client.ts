@@ -39,6 +39,7 @@ export function getDb(): Database.Database {
   // enforcement would otherwise reject. Turned on only once everything below
   // has settled into its final, consistent shape.
   migrateGamesLoserNullable(db);
+  repairDanglingGameChildForeignKeys(db);
   db.exec(schemaSql);
 
   seedReferenceDataIfEmpty(db);
@@ -57,6 +58,13 @@ export function getDb(): Database.Database {
  * (rename, let schema.sql recreate it fresh with the new column
  * definition, copy the old rows across, drop the rename) rather than
  * losing whoever already has games recorded locally.
+ *
+ * Renaming `games` here has a side effect handled separately, by
+ * `repairDanglingGameChildForeignKeys` below: SQLite silently rewrites any
+ * OTHER table's foreign key clause that points at `games`
+ * (payment_game_links.game_id, collateral_items.game_id) to point at the
+ * renamed name instead, which goes dangling once that renamed table is
+ * dropped at the end of this function.
  */
 function migrateGamesLoserNullable(database: Database.Database): void {
   const gamesExists = database
@@ -84,6 +92,48 @@ function migrateGamesLoserNullable(database: Database.Database): void {
     INSERT INTO games SELECT * FROM games_pre_nullable_loser;
     DROP TABLE games_pre_nullable_loser;
   `);
+}
+
+function tableExists(database: Database.Database, name: string): boolean {
+  return !!database.prepare(`SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?`).get(name);
+}
+
+/**
+ * Self-healing pass for the fallout described above: if payment_game_links
+ * or collateral_items currently have a foreign key pointing at a table that
+ * doesn't exist (either from the rename this same run just did, or from an
+ * install that already went through that rename in a previous, buggier
+ * version of this migration), rebuild just those two tables so their
+ * foreign key points at the real `games` table again. Runs unconditionally
+ * and is a cheap no-op — a couple of PRAGMA lookups — when nothing is wrong.
+ */
+function repairDanglingGameChildForeignKeys(database: Database.Database): void {
+  const targets: { table: string; indexDropSql?: string }[] = [
+    { table: "payment_game_links" },
+    { table: "collateral_items", indexDropSql: "DROP INDEX IF EXISTS idx_collateral_customer;" },
+  ];
+
+  const toRebuild = targets.filter((t) => {
+    if (!tableExists(database, t.table)) return false;
+    const fks = database.prepare(`PRAGMA foreign_key_list(${t.table})`).all() as { table: string }[];
+    return fks.some((fk) => !tableExists(database, fk.table));
+  });
+  if (toRebuild.length === 0) return;
+
+  database.pragma("foreign_keys = OFF");
+  for (const t of toRebuild) {
+    if (t.indexDropSql) database.exec(t.indexDropSql);
+    database.exec(`ALTER TABLE ${t.table} RENAME TO ${t.table}_dangling_fk_fix;`);
+  }
+
+  database.exec(schemaSql);
+
+  for (const t of toRebuild) {
+    database.exec(`
+      INSERT INTO ${t.table} SELECT * FROM ${t.table}_dangling_fk_fix;
+      DROP TABLE ${t.table}_dangling_fk_fix;
+    `);
+  }
 }
 
 /**
