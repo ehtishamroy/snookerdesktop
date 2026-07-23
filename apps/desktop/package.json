@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "Offline-first Electron counter application for the Snooker Club Management System — used by receptionists at the counter to register games, track time, calculate price, and record payments. Works fully offline and syncs automatically when internet is available.",
-  "main": "dist-electron/main.js",
+  "main": "dist-electron/index.js",
   "author": "Deekod Digital",
   "scripts": {
     "dev": "vite",
