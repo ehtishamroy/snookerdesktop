@@ -65,3 +65,33 @@ export function getUtilization(tableId: number, from: string, to: string): Utili
 
   return computeUtilization(windows, new Date(to));
 }
+
+/**
+ * "Where can I see when a table was free from X to Y" — the vacancy side of
+ * the utilization log (spec §2.7), formatted for the Table Details screen:
+ * every vacant window over the last `sinceDays`, most recent first, plus a
+ * utilization summary for that span.
+ */
+export function getVacancyHistory(
+  tableId: number,
+  sinceDays = 30
+): { windows: { from: string; to: string; durationMinutes: number }[]; totalVacantMinutes: number; totalOccupiedMinutes: number; utilizationPercent: number } {
+  const now = new Date();
+  const from = new Date(now.getTime() - sinceDays * 24 * 60 * 60 * 1000);
+  const result = getUtilization(tableId, from.toISOString(), now.toISOString());
+
+  const windows = [...result.vacantWindows]
+    .sort((a, b) => b.from.getTime() - a.from.getTime())
+    .map((w) => ({
+      from: w.from.toISOString(),
+      to: w.to.toISOString(),
+      durationMinutes: Math.round((w.to.getTime() - w.from.getTime()) / 60000),
+    }));
+
+  return {
+    windows,
+    totalVacantMinutes: Math.round(result.vacantMinutes),
+    totalOccupiedMinutes: Math.round(result.occupiedMinutes),
+    utilizationPercent: Math.round(result.utilizationPercent * 10) / 10,
+  };
+}

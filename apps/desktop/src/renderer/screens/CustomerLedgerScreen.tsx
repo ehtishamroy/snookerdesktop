@@ -21,6 +21,9 @@ export function CustomerLedgerScreen() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [method, setMethod] = useState<PaymentMethod>("cash");
   const [note, setNote] = useState("");
+  const [discountMode, setDiscountMode] = useState<"amount" | "percent">("amount");
+  const [discountValue, setDiscountValue] = useState("");
+  const [discountReason, setDiscountReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -55,7 +58,10 @@ export function CustomerLedgerScreen() {
     });
   }
 
-  const selectedTotal = ledger?.unsettledGames.filter((g) => selectedIds.has(g.gameId)).reduce((s, g) => s + g.priceFinal, 0) ?? 0;
+  const selectedRawTotal = ledger?.unsettledGames.filter((g) => selectedIds.has(g.gameId)).reduce((s, g) => s + g.priceFinal, 0) ?? 0;
+  const discountAmount =
+    discountMode === "amount" ? Number(discountValue) || 0 : Math.round((selectedRawTotal * (Number(discountValue) || 0)) / 100);
+  const selectedFinalTotal = Math.max(0, selectedRawTotal - discountAmount);
 
   async function handleSettle() {
     if (!ledger || selectedIds.size === 0) return;
@@ -67,13 +73,20 @@ export function CustomerLedgerScreen() {
         selectedGameIds: [...selectedIds],
         method,
         note: note.trim() || undefined,
+        discountAmount: discountAmount > 0 ? discountAmount : undefined,
+        discountReason: discountReason.trim() || undefined,
         collectedByUserId: session.user.id,
         shiftId: session.shift.id,
       });
-      setMessage(`Recorded payment of Rs. ${selectedTotal} (${method}).`);
+      setMessage(
+        `Recorded payment of Rs. ${selectedFinalTotal} (${method})` +
+          (discountAmount > 0 ? ` — Rs. ${discountAmount} discount applied.` : ".")
+      );
       const refreshed = await api.customers.getLedger(ledger.customerId);
       setLedger(refreshed);
       setSelectedIds(new Set());
+      setDiscountValue("");
+      setDiscountReason("");
       void refreshLoanLedger();
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Failed to record payment");
@@ -189,7 +202,14 @@ export function CustomerLedgerScreen() {
               <div className="rounded-lg bg-slate-100 p-4 dark:bg-slate-700">
                 <div className="mb-3 flex items-center justify-between">
                   <span className="font-semibold">Selected: {selectedIds.size} round(s)</span>
-                  <span className="text-xl font-extrabold">Rs. {selectedTotal}</span>
+                  <span className="text-xl font-extrabold">
+                    Rs. {selectedFinalTotal}
+                    {discountAmount > 0 && (
+                      <span className="ml-2 text-sm font-normal text-slate-500 dark:text-slate-300">
+                        (Rs. {selectedRawTotal} − Rs. {discountAmount} discount)
+                      </span>
+                    )}
+                  </span>
                 </div>
                 <div className="mb-3 grid grid-cols-4 gap-2">
                   {PAYMENT_METHODS.map((m) => (
@@ -204,6 +224,31 @@ export function CustomerLedgerScreen() {
                     </button>
                   ))}
                 </div>
+                <div className="mb-3 grid grid-cols-2 gap-2">
+                  <div className="flex gap-2">
+                    <select
+                      className="field-input w-24"
+                      value={discountMode}
+                      onChange={(e) => setDiscountMode(e.target.value as "amount" | "percent")}
+                    >
+                      <option value="amount">Rs.</option>
+                      <option value="percent">%</option>
+                    </select>
+                    <input
+                      type="number"
+                      className="field-input"
+                      placeholder="Discount"
+                      value={discountValue}
+                      onChange={(e) => setDiscountValue(e.target.value)}
+                    />
+                  </div>
+                  <input
+                    className="field-input"
+                    placeholder="Discount reason (optional)"
+                    value={discountReason}
+                    onChange={(e) => setDiscountReason(e.target.value)}
+                  />
+                </div>
                 <input
                   className="field-input mb-3"
                   placeholder="Note (optional)"
@@ -211,7 +256,7 @@ export function CustomerLedgerScreen() {
                   onChange={(e) => setNote(e.target.value)}
                 />
                 <button className="btn-success w-full" disabled={selectedIds.size === 0 || busy} onClick={handleSettle}>
-                  {busy ? "Recording…" : `Record Payment of Rs. ${selectedTotal}`}
+                  {busy ? "Recording…" : `Record Payment of Rs. ${selectedFinalTotal}`}
                 </button>
                 {message && <div className="mt-3 rounded-lg bg-white px-4 py-2 text-sm dark:bg-slate-800">{message}</div>}
               </div>

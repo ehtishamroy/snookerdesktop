@@ -49,6 +49,7 @@ import * as collateralRepo from "../db/repositories/collateralRepo";
 import * as expensesRepo from "../db/repositories/expensesRepo";
 import * as auditLogRepo from "../db/repositories/auditLogRepo";
 import * as reportsRepo from "../db/repositories/reportsRepo";
+import * as tableStatusLogRepo from "../db/repositories/tableStatusLogRepo";
 import { getDb } from "../db/client";
 import { getCurrentSession, setCurrentSession, clearCurrentSession } from "../session";
 import { getSettings, updateSettings } from "../config";
@@ -100,6 +101,7 @@ export function registerIpcHandlers(syncEngine: SyncEngine): void {
     return tablesRepo.setTableActive(input);
   });
   ipcMain.handle(IPC_CHANNELS.tablesGetHistory, (_event, tableId: number) => gamesRepo.getTableHistory(tableId));
+  ipcMain.handle(IPC_CHANNELS.tablesGetVacancyHistory, (_event, tableId: number) => tableStatusLogRepo.getVacancyHistory(tableId));
 
   // ---- Game types / pricing --------------------------------------------------
   ipcMain.handle(IPC_CHANNELS.gameTypesList, (_event, tableType?: TableType) =>

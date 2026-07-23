@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
-import type { CurrentGameView, TableHistoryView } from "../api";
+import type { CurrentGameView, TableHistoryView, TableVacancyHistoryView } from "../api";
 import { Badge } from "../components/Badge";
 import { Modal } from "../components/Modal";
 import { PlayerNameField, resolveLoserCustomerId, type PlayerNameFieldState } from "../components/PlayerNameField";
@@ -38,12 +38,14 @@ export function TableDetailsScreen({ tableId, onBack }: { tableId: number; onBac
   const tile = tiles.find((t) => t.table.id === tableId);
 
   const [history, setHistory] = useState<TableHistoryView | null>(null);
+  const [vacancy, setVacancy] = useState<TableVacancyHistoryView | null>(null);
   const [showRegisterPanel, setShowRegisterPanel] = useState(false);
   const [showSetName, setShowSetName] = useState(false);
 
   const loadHistory = useCallback(async () => {
-    const h = await api.tables.getHistory(tableId);
+    const [h, v] = await Promise.all([api.tables.getHistory(tableId), api.tables.getVacancyHistory(tableId)]);
     setHistory(h);
+    setVacancy(v);
   }, [tableId]);
 
   useEffect(() => {
@@ -165,6 +167,48 @@ export function TableDetailsScreen({ tableId, onBack }: { tableId: number; onBac
                 <tr>
                   <td colSpan={6} className="py-6 text-center text-slate-400">
                     No games played on this table yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="card mt-6 p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-bold">Vacancy Log (last 30 days)</h2>
+          {vacancy && (
+            <div className="text-sm font-semibold text-slate-500 dark:text-slate-400">
+              {vacancy.utilizationPercent}% occupied
+            </div>
+          )}
+        </div>
+        <div className="max-h-72 overflow-y-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 text-left text-slate-500 dark:border-slate-600 dark:text-slate-400">
+                <th className="py-2 pr-2">From</th>
+                <th className="py-2 pr-2">To</th>
+                <th className="py-2">Duration Free</th>
+              </tr>
+            </thead>
+            <tbody>
+              {vacancy?.windows.map((w, i) => (
+                <tr key={i} className="border-b border-slate-100 dark:border-slate-700">
+                  <td className="py-2 pr-2">{formatDateTime12h(w.from)}</td>
+                  <td className="py-2 pr-2">{formatDateTime12h(w.to)}</td>
+                  <td className="py-2">
+                    {w.durationMinutes >= 60
+                      ? `${Math.floor(w.durationMinutes / 60)}h ${w.durationMinutes % 60}m`
+                      : `${w.durationMinutes} min`}
+                  </td>
+                </tr>
+              ))}
+              {vacancy && vacancy.windows.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="py-6 text-center text-slate-400">
+                    No vacancy recorded for this table yet.
                   </td>
                 </tr>
               )}

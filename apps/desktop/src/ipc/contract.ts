@@ -137,6 +137,19 @@ export interface TableHistoryView {
   totalGamesAllTime: number;
 }
 
+export interface TableVacancyWindowView {
+  from: string;
+  to: string;
+  durationMinutes: number;
+}
+
+export interface TableVacancyHistoryView {
+  windows: TableVacancyWindowView[];
+  totalVacantMinutes: number;
+  totalOccupiedMinutes: number;
+  utilizationPercent: number;
+}
+
 export interface PerTableRevenueRow {
   tableId: number;
   tableNumber: number;
@@ -293,6 +306,9 @@ export interface SettleInput {
   selectedGameIds: number[];
   method: PaymentMethod;
   note?: string;
+  /** Unrestricted, like the per-round discount at End Game (decision #3) — reduces what's collected below the selected rounds' summed price. */
+  discountAmount?: number;
+  discountReason?: string;
   collectedByUserId: number;
   shiftId: number;
 }
@@ -360,6 +376,7 @@ export interface DesktopApi {
     list(): Promise<TableEntity[]>;
     setActive(input: SetTableActiveInput): Promise<TableEntity>;
     getHistory(tableId: number): Promise<TableHistoryView>;
+    getVacancyHistory(tableId: number): Promise<TableVacancyHistoryView>;
   };
   gameTypes: {
     list(tableType?: TableType): Promise<GameTypeEntity[]>;
@@ -431,6 +448,7 @@ export const IPC_CHANNELS = {
   tablesList: "tables:list",
   tablesSetActive: "tables:setActive",
   tablesGetHistory: "tables:getHistory",
+  tablesGetVacancyHistory: "tables:getVacancyHistory",
   gameTypesList: "gameTypes:list",
   pricingRulesGetActive: "pricingRules:getActive",
   pricingRulesGetHistory: "pricingRules:getHistory",
