@@ -1,0 +1,74 @@
+import type { LedgerGame, PaymentEntity } from "@snooker/shared";
+import { buildCustomerLedger, validateSettlement } from "@snooker/shared";
+import { getDb } from "../client";
+import { writeAuditLog } from "./auditLogRepo";
+import { settlePaymentForGames } from "./gamesRepo";
+import type { SettleInput } from "../../../ipc/contract";
+
+/**
+ * Customer Ledger / Settle-Up screen (spec §5.3): settles any subset of a
+ * customer's unpaid rounds at once — the "losing chain" scenario. The
+ * settlement amount is always computed server-side (here) as the exact sum
+ * of the selected rounds' priceFinal, never trusted from the renderer, and
+ * validated with @snooker/shared's validateSettlement so a stale/duplicate
+ * selection (e.g. a round someone else just settled from another PC) is
+ * rejected rather than silently double-charged.
+ */
+export function settle(input: SettleInput): PaymentEntity {
+  const db = getDb();
+  const tx = db.transaction(() => {
+    const rows = db
+      .prepare(
+        `SELECT g.id AS game_id, t.table_number, gt.name AS game_type_name, g.start_time, g.end_time, g.price_final, g.payment_status
+         FROM games g
+         JOIN tables t ON t.id = g.table_id
+         JOIN game_types gt ON gt.id = g.game_type_id
+         WHERE g.loser_customer_id = ? AND g.reversed = 0 AND g.end_time IS NOT NULL
+           AND g.payment_status IN ('pending','loan','collateral','tricked')`
+      )
+      .all(input.customerId) as any[];
+
+    const ledgerGames: LedgerGame[] = rows.map((r) => ({
+      gameId: r.game_id,
+      tableNumber: r.table_number,
+      gameTypeName: r.game_type_name,
+      startTime: new Date(r.start_time),
+      endTime: new Date(r.end_time),
+      priceFinal: r.price_final,
+      paymentStatus: r.payment_status,
+    }));
+    const ledger = buildCustomerLedger(input.customerId, ledgerGames);
+
+    const amount = ledger.unsettledGames
+      .filter((g) => input.selectedGameIds.includes(g.gameId))
+      .reduce((sum, g) => sum + g.priceFinal, 0);
+
+    const validation = validateSettlement(ledger, {
+      selectedGameIds: input.selectedGameIds,
+      amount,
+      method: input.method,
+    });
+    if (!validation.valid) throw new Error(validation.error);
+
+    const payment = settlePaymentForGames(db, {
+      customerId: input.customerId,
+      gameIds: input.selectedGameIds,
+      amount,
+      method: input.method,
+      note: input.note,
+      collectedByUserId: input.collectedByUserId,
+      shiftId: input.shiftId,
+    });
+
+    writeAuditLog(db, {
+      entityType: "payments",
+      entityId: payment.id,
+      action: "create",
+      afterValue: payment,
+      performedById: input.collectedByUserId,
+    });
+
+    return payment;
+  });
+  return tx();
+}

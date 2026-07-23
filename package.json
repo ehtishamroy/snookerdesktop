@@ -1,0 +1,20 @@
+{
+  "name": "snooker-club-management-system",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Offline-first snooker club management system: counter desktop app, cloud backend, owner dashboard.",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "pnpm -r --filter=./packages/* --filter=./apps/* build",
+    "test": "pnpm -r --filter=./packages/* --filter=./apps/* test",
+    "typecheck": "pnpm -r --filter=./packages/* --filter=./apps/* typecheck",
+    "lint": "pnpm -r --filter=./packages/* --filter=./apps/* lint"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@10.34.5"
+}

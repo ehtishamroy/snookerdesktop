@@ -1,0 +1,19 @@
+{
+  // Electron main process + preload + sync engine + local DB layer. Runs in
+  // Node, not the browser — no DOM lib, has access to better-sqlite3/fs/etc.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": ["node", "better-sqlite3", "vite/client"]
+  },
+  "include": ["src/main/**/*.ts", "src/ipc/**/*.ts"]
+}

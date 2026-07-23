@@ -1,0 +1,43 @@
+{
+  "name": "@snooker/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Offline-first Electron counter application for the Snooker Club Management System — used by receptionists at the counter to register games, track time, calculate price, and record payments. Works fully offline and syncs automatically when internet is available.",
+  "main": "dist-electron/main.js",
+  "author": "Deekod Digital",
+  "scripts": {
+    "dev": "vite",
+    "build": "pnpm run typecheck && vite build",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "test": "vitest run",
+    "package": "pnpm run build && electron-rebuild -f -w better-sqlite3 && electron-builder"
+  },
+  "dependencies": {
+    "@snooker/shared": "workspace:*",
+    "better-sqlite3": "^11.3.0",
+    "date-fns": "^3.6.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zustand": "^4.5.5"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^20.14.15",
+    "@types/react": "^18.3.4",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.20",
+    "@electron/rebuild": "^3.6.0",
+    "electron": "^31.3.0",
+    "electron-builder": "^24.13.3",
+    "postcss": "^8.4.41",
+    "tailwindcss": "^3.4.10",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.2",
+    "vite-plugin-electron": "^0.28.8",
+    "vitest": "^2.0.5"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
