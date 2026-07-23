@@ -21,7 +21,15 @@
 //  - customers.is_temporary ("nishani") records are intentionally NOT meant
 //    to persist forever: a background job purges any nishani customer once
 //    all of their linked games are fully paid and they were never merged
-//    into a real customer (see apps/server/src/jobs/purgeNishani.ts).
+//    into a real customer (see apps/server/src/jobs/purgeNishani.ts). Because
+//    that purge is a genuine hard delete of a row that historical, already
+//    -settled games/payments/collateral may still point to, the FKs from
+//    Game.loserCustomerId/winnerCustomerId, Payment.customerId and
+//    CollateralItem.customerId to Customer are nullable with
+//    onDelete: SetNull (fixed here vs. the original draft, which had
+//    loserCustomerId/Payment.customerId/CollateralItem.customerId as
+//    required — that would make decision #17's hard-delete-after-fully-paid
+//    behavior impossible without a Postgres FK violation).
 
 generator client {
   provider = "prisma-client-js"
@@ -194,10 +202,19 @@ model Game {
   discountById             Int?
   discountBy               User?         @relation("GameDiscountBy", fields: [discountById], references: [id])
   priceFinal               Int
-  loserCustomerId          Int
-  loserCustomer            Customer      @relation("GameLoser", fields: [loserCustomerId], references: [id])
+  // Nullable + onDelete: SetNull (not a design default — see note above the
+  // Customer model): decision #17 requires the nishani purge job to
+  // hard-delete a temporary customer even though it may still be referenced
+  // by fully-paid historical games. Postgres needs a nullable FK with
+  // ON DELETE SET NULL to do that without violating referential integrity;
+  // a NOT NULL loserCustomerId would make the documented purge behavior
+  // impossible to implement. The purge job only ever deletes a customer
+  // with zero pending/loan/collateral games, so in practice this only ever
+  // goes null on already-settled (paid) rows, never live debt.
+  loserCustomerId          Int?
+  loserCustomer            Customer?     @relation("GameLoser", fields: [loserCustomerId], references: [id], onDelete: SetNull)
   winnerCustomerId         Int?
-  winnerCustomer           Customer?     @relation("GameWinner", fields: [winnerCustomerId], references: [id])
+  winnerCustomer           Customer?     @relation("GameWinner", fields: [winnerCustomerId], references: [id], onDelete: SetNull)
   paymentStatus            PaymentStatus
   createdByUserId          Int
   createdBy                User          @relation("GameCreatedBy", fields: [createdByUserId], references: [id])
@@ -221,8 +238,11 @@ model Game {
 
 model Payment {
   id                 Int       @id @default(autoincrement())
-  customerId         Int
-  customer           Customer  @relation(fields: [customerId], references: [id])
+  // Nullable + onDelete: SetNull for the same reason as Game.loserCustomerId
+  // above — a nishani may have paid off their tab (payment recorded against
+  // their temporary customer row) before the purge job hard-deletes them.
+  customerId         Int?
+  customer           Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
   amount             Int
   method             PaymentMethod
   note               String?
@@ -252,8 +272,9 @@ model CollateralItem {
   id               Int       @id @default(autoincrement())
   gameId           Int
   game             Game      @relation(fields: [gameId], references: [id])
-  customerId       Int
-  customer         Customer  @relation(fields: [customerId], references: [id])
+  // Nullable + onDelete: SetNull — same nishani-purge reasoning as above.
+  customerId       Int?
+  customer         Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
   itemDescription  String
   heldByUserId     Int
   heldBy           User      @relation("CollateralHeldBy", fields: [heldByUserId], references: [id])

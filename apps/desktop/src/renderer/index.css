@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-slate-100 text-slate-900 antialiased select-none;
+    font-family:
+      "Segoe UI",
+      -apple-system,
+      BlinkMacSystemFont,
+      Roboto,
+      Helvetica,
+      Arial,
+      sans-serif;
+  }
+  /* Numeric inputs (amounts, PINs) should still allow selection for correction. */
+  input,
+  textarea {
+    @apply select-text;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    @apply bg-slate-900 text-slate-100;
+  }
+}
+
+@layer components {
+  /* Large, touch-friendly primary action button — the baseline for every
+     button in the app per spec §11 Usability (a receptionist working fast
+     under a queue of walk-ins should never have to aim for a tiny target). */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-6 py-4 text-lg font-semibold
+      transition active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none select-none;
+  }
+  .btn-primary {
+    @apply btn bg-blue-600 text-white hover:bg-blue-700;
+  }
+  .btn-secondary {
+    @apply btn bg-white text-slate-800 border-2 border-slate-300 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600;
+  }
+  .btn-danger {
+    @apply btn bg-red-600 text-white hover:bg-red-700;
+  }
+  .btn-success {
+    @apply btn bg-green-600 text-white hover:bg-green-700;
+  }
+  .field-label {
+    @apply block text-sm font-semibold text-slate-600 dark:text-slate-300 mb-1;
+  }
+  .field-input {
+    @apply w-full rounded-lg border-2 border-slate-300 px-4 py-3 text-lg
+      focus:border-blue-500 focus:outline-none dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100;
+  }
+  .card {
+    @apply rounded-2xl bg-white shadow-sm border border-slate-200 dark:bg-slate-800 dark:border-slate-700;
+  }
+}

@@ -1,0 +1,21 @@
+{
+  // React renderer (Vite). Runs in the Chromium renderer process — DOM lib,
+  // JSX, no Node globals (the renderer only talks to Node/Electron through
+  // the typed `window.api` surface exposed by the preload script).
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": ["vite/client"]
+  },
+  "include": ["src/renderer/**/*.ts", "src/renderer/**/*.tsx", "src/ipc/**/*.ts"]
+}

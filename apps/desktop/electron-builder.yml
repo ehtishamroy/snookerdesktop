@@ -1,0 +1,43 @@
+# electron-builder configuration — Windows-installable counter app (spec §3.4).
+#
+# Auto-update note: `autoUpdater` from `electron-updater` is intentionally NOT
+# wired up in this build pass (out of scope for now), but src/main/index.ts's
+# app.whenReady() structure leaves a clearly marked spot to add it later:
+# publish a `win.nsis` feed here (e.g. a `publish: { provider: 'generic', url: ... }`
+# block) and call `autoUpdater.checkForUpdatesAndNotify()` once the main window
+# is created.
+appId: com.deekoddigital.snookerclub.desktop
+productName: Snooker Counter
+copyright: Copyright © Deekod Digital
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**/*
+  - dist-electron/**/*
+  - package.json
+asarUnpack:
+  # better-sqlite3's compiled .node binding cannot run from inside the asar
+  # archive — unpack the whole module so the native addon loads normally.
+  - node_modules/better-sqlite3/**/*
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: ${productName}-Setup-${version}.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: Snooker Counter
+linux:
+  target:
+    - AppImage
+  category: Office
+mac:
+  target:
+    - dmg
+  category: public.app-category.business

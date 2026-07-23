@@ -1,0 +1,22 @@
+{
+  // Editor-facing convenience config covering the whole source tree. The
+  // scripts in package.json ("typecheck") run tsconfig.node.json (Electron
+  // main + preload + sync engine) and tsconfig.web.json (React renderer)
+  // separately, since they target different runtime environments (Node vs
+  // browser/DOM) and must not leak each other's globals.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["src"]
+}
