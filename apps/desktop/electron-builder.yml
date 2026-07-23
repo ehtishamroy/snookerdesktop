@@ -9,6 +9,12 @@
 appId: com.deekoddigital.snookerclub.desktop
 productName: Snooker Counter
 copyright: Copyright © Deekod Digital
+# With pnpm's hoisted node_modules layout, the electron package lives in the
+# workspace root's node_modules, not apps/desktop/node_modules, so
+# electron-builder's auto-detection (which only looks locally) can't find it.
+# Pin it explicitly instead — keep this in sync with the devDependency range
+# in package.json.
+electronVersion: 31.7.7
 directories:
   output: release
   buildResources: build
