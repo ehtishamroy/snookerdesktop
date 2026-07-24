@@ -98,7 +98,13 @@ function ExpensesPageContent() {
         ) : filtered.length === 0 ? (
           <EmptyState title="No expenses in this range" />
         ) : (
-          <DataTable columns={expenseColumns} rows={filtered} keyField={(r) => r.id} defaultSortKey="date" />
+          <DataTable
+            columns={expenseColumns}
+            rows={filtered}
+            keyField={(r) => r.id}
+            defaultSortKey="date"
+            rowClassName={(r) => (r.edited ? "bg-amber-50/60 dark:bg-amber-900/10" : "")}
+          />
         )}
       </section>
     </div>
@@ -107,7 +113,23 @@ function ExpensesPageContent() {
 
 const expenseColumns: DataTableColumn<ExpenseEntity>[] = [
   { key: "date", header: "Date", render: (r) => formatDateTime(r.spentAt), sortValue: (r) => new Date(r.spentAt).getTime() },
-  { key: "category", header: "Category", render: (r) => r.category },
+  {
+    key: "category",
+    header: "Category",
+    render: (r) => (
+      <div className="flex items-center gap-2">
+        <span>{r.category}</span>
+        {r.edited ? (
+          <span
+            title={r.editedAt ? `Edited ${formatDateTime(r.editedAt)}` : "Edited"}
+            className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
+          >
+            Edited
+          </span>
+        ) : null}
+      </div>
+    ),
+  },
   { key: "method", header: "Method", render: (r) => <PaymentMethodBadge method={r.method} />, sortable: false },
   { key: "note", header: "Note", render: (r) => r.note ?? "—", sortable: false },
   { key: "amount", header: "Amount", render: (r) => formatPKR(r.amount), sortValue: (r) => r.amount, className: "text-right font-semibold" },

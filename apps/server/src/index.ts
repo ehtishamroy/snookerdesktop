@@ -18,6 +18,7 @@ import { collateralRouter } from "./routes/collateral";
 import { shiftsRouter } from "./routes/shifts";
 import { expensesRouter } from "./routes/expenses";
 import { reportsRouter } from "./routes/reports";
+import { capitalRouter } from "./routes/capital";
 import { syncRouter } from "./routes/sync";
 import { jobsRouter } from "./routes/jobs";
 import { purgeNishani } from "./jobs/purgeNishani";
@@ -47,6 +48,7 @@ export function createApp() {
   app.use("/api/shifts", shiftsRouter);
   app.use("/api/expenses", expensesRouter);
   app.use("/api/reports", reportsRouter);
+  app.use("/api/capital", capitalRouter);
   app.use("/api/sync", syncRouter);
   app.use("/api/jobs", jobsRouter);
 

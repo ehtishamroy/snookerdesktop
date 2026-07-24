@@ -199,4 +199,45 @@ export interface CollateralItemRow extends CollateralItemEntity {
   returnedByName: string | null;
 }
 
+export interface CapitalMethodBalance {
+  method: PaymentMethod;
+  startingAmount: number;
+  totalCollected: number;
+  totalExpenses: number;
+  totalPayouts: number;
+  balance: number;
+  startingSetAt: string | null;
+}
+
+export interface BalanceSheet {
+  byMethod: CapitalMethodBalance[];
+  totalCapital: number;
+}
+
+export interface PayoutEntry {
+  id: number;
+  amount: number;
+  method: PaymentMethod;
+  note: string | null;
+  performedAt: string;
+  performedById: number;
+  performedBy: { id: number; fullName: string };
+}
+
+export interface FinancialAnalysis {
+  lookbackMonths: number;
+  avgDailySale: number;
+  avgDailyExpense: number;
+  avgDailyLoan: number;
+  avgMonthlySale: number;
+  avgMonthlyExpense: number;
+  avgMonthlyLoan: number;
+  currentMonth: {
+    salesSoFar: number;
+    daysElapsed: number;
+    daysInMonth: number;
+    projectedMonthEndEarning: number;
+  };
+}
+
 export type { GameTypeEntity, PricingRuleEntity, CustomerEntity, ExpenseEntity, ShiftEntity, UserEntity };

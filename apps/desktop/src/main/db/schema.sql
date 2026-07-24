@@ -219,7 +219,10 @@ CREATE TABLE IF NOT EXISTS expenses (
   note                TEXT,
   spent_at            TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   recorded_by_user_id INTEGER NOT NULL REFERENCES users (id),
-  shift_id            INTEGER NOT NULL REFERENCES shifts (id)
+  shift_id            INTEGER NOT NULL REFERENCES shifts (id),
+  edited              INTEGER NOT NULL DEFAULT 0,
+  edited_at           TEXT,
+  edited_by_id        INTEGER REFERENCES users (id)
 );
 CREATE INDEX IF NOT EXISTS idx_expenses_shift ON expenses (shift_id);
 

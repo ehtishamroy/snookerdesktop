@@ -192,6 +192,12 @@ class FakeModel {
     return clone(current);
   }
 
+  async upsert({ where, create, update }: { where: Row; create: Row; update: Row }): Promise<Row> {
+    const existing = this.rows.find((r) => matchesWhere(r, where));
+    if (existing) return this.update({ where, data: update });
+    return this.create({ data: create });
+  }
+
   async updateMany({ where, data }: { where: Row; data: Row }): Promise<{ count: number }> {
     let count = 0;
     for (const row of this.rows) {
@@ -352,9 +358,18 @@ export class FakeDb {
     returnedByUserId: null,
     ...d,
   }));
-  expense = new FakeModel(this, "expense", (d) => ({ note: null, spentAt: new Date(), ...d }));
+  expense = new FakeModel(this, "expense", (d) => ({
+    note: null,
+    spentAt: new Date(),
+    edited: false,
+    editedAt: null,
+    editedById: null,
+    ...d,
+  }));
   auditLog = new FakeModel(this, "auditLog", (d) => ({ performedAt: new Date(), ...d }));
   tableStatusLog = new FakeModel(this, "tableStatusLog", (d) => ({ statusTo: null, ...d }));
+  capitalStartingBalance = new FakeModel(this, "capitalStartingBalance", (d) => ({ updatedAt: new Date(), ...d }));
+  payout = new FakeModel(this, "payout", (d) => ({ note: null, performedAt: new Date(), ...d }));
 
   model(name: string): FakeModel {
     const model = (this as unknown as Record<string, FakeModel | undefined>)[name];

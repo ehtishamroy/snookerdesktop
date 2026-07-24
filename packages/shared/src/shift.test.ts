@@ -9,7 +9,10 @@ describe("buildZReport (shift close / cash reconciliation)", () => {
         { method: "easypaisa", amount: 500 },
         { method: "cash", amount: 200 },
       ],
-      expenses: [{ method: "cash", amount: 300 }],
+      expenses: [
+        { method: "cash", amount: 300 },
+        { method: "easypaisa", amount: 100 },
+      ],
       games: [
         { paymentStatus: "paid", discountAmount: 0, priceFinal: 1000 },
         { paymentStatus: "pending", discountAmount: 0, priceFinal: 200 },
@@ -26,6 +29,10 @@ describe("buildZReport (shift close / cash reconciliation)", () => {
     expect(report.declaredCashAmount).toBe(900);
     expect(report.cashVariance).toBe(0);
     expect(report.cashVarianceNeedsAttention).toBe(false);
+    // Expenses are always paid out of today's club earnings (cash or
+    // otherwise), never a separate pool — every method nets its own expenses.
+    expect(report.netByMethod.cash).toBe(900);
+    expect(report.netByMethod.easypaisa).toBe(400); // 500 collected - 100 expense
     expect(report.totalPendingCreated).toBe(200);
     expect(report.totalLoanCreated).toBe(150);
     expect(report.totalTrickedCount).toBe(1);

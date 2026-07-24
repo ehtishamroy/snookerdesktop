@@ -31,6 +31,9 @@ export const NAV_PERMISSIONS = {
   adminPricing: ["owner"],
   adminStaff: ["owner"],
   adminMerge: ["owner", "manager"],
+  // Capital/balance-sheet and monthly-earning figures are owner-only —
+  // explicitly not visible to a manager, unlike most other admin screens.
+  capital: ["owner"],
 } as const satisfies Record<string, readonly Role[]>;
 
 export type NavKey = keyof typeof NAV_PERMISSIONS;

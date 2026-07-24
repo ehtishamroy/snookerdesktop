@@ -51,6 +51,57 @@ expensesRouter.post(
   })
 );
 
+const updateExpenseSchema = z.object({
+  category: z.string().min(1).optional(),
+  amount: z.number().int().positive().optional(),
+  method: z.enum(PAYMENT_METHODS).optional(),
+  note: z.string().optional(),
+});
+
+/**
+ * Any authenticated staff member can correct an expense after the fact
+ * (decision #3's "unrestricted but always attributed" philosophy, extended
+ * to expense corrections) — but every edit sets `edited`/`editedAt`/
+ * `editedById` so it's visibly flagged, on top of the full before/after this
+ * still writes to audit_log like any other mutation.
+ */
+expensesRouter.patch(
+  "/:id",
+  asyncHandler(async (req, res) => {
+    const id = Number(req.params.id);
+    const body = updateExpenseSchema.parse(req.body);
+
+    const before = await prisma.expense.findUnique({ where: { id } });
+    if (!before) throw ApiError.notFound(`Expense ${id} not found`);
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const result = await tx.expense.update({
+        where: { id },
+        data: {
+          category: body.category,
+          amount: body.amount,
+          method: body.method,
+          note: body.note,
+          edited: true,
+          editedAt: new Date(),
+          editedById: req.user!.userId,
+        },
+      });
+      await writeAuditLog(tx, {
+        entityType: "expense",
+        entityId: id,
+        action: "update",
+        performedById: req.user!.userId,
+        beforeValue: before,
+        afterValue: result,
+      });
+      return result;
+    });
+
+    res.json(updated);
+  })
+);
+
 expensesRouter.get(
   "/",
   asyncHandler(async (req, res) => {

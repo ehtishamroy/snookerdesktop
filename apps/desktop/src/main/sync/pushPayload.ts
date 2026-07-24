@@ -54,6 +54,7 @@ export const FK_FIELDS: Record<string, FkField[]> = {
   expenses: [
     { field: "recordedByUserId", refType: "users", nullable: false },
     { field: "shiftId", refType: "shifts", nullable: false },
+    { field: "editedById", refType: "users", nullable: true },
   ],
   shifts: [
     { field: "userId", refType: "users", nullable: false },

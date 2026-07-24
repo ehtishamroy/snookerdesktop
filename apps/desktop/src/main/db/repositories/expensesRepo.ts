@@ -3,7 +3,7 @@ import type { ExpenseEntity } from "@snooker/shared";
 import { getDb } from "../client";
 import { enqueueSyncWrite } from "./syncQueueRepo";
 import { writeAuditLog } from "./auditLogRepo";
-import type { CreateExpenseInput, ExpenseListFilter } from "../../../ipc/contract";
+import type { CreateExpenseInput, ExpenseListFilter, UpdateExpenseInput } from "../../../ipc/contract";
 
 function mapRow(row: any): ExpenseEntity {
   return {
@@ -15,6 +15,9 @@ function mapRow(row: any): ExpenseEntity {
     spentAt: row.spent_at,
     recordedByUserId: row.recorded_by_user_id,
     shiftId: row.shift_id,
+    edited: !!row.edited,
+    editedAt: row.edited_at,
+    editedById: row.edited_by_id,
   };
 }
 
@@ -45,6 +48,52 @@ export function createExpense(input: CreateExpenseInput): ExpenseEntity {
       performedById: input.recordedByUserId,
     });
     return entity;
+  });
+  return tx();
+}
+
+/**
+ * Any staff member can correct an expense they (or a colleague) mis-entered —
+ * matching the "unrestricted but always attributed" philosophy discounts
+ * already use (decision #3). Every edit sets edited/editedAt/editedById so
+ * the owner can spot a corrected entry in the list at a glance, on top of
+ * the full before/after this still writes to audit_log.
+ */
+export function updateExpense(input: UpdateExpenseInput): ExpenseEntity {
+  const db = getDb();
+  const now = new Date().toISOString();
+  const tx = db.transaction(() => {
+    const before = mapRow(db.prepare(`SELECT * FROM expenses WHERE id = ?`).get(input.expenseId));
+    if (!before) throw new Error(`Expense ${input.expenseId} not found`);
+
+    const sets: string[] = [];
+    const params: unknown[] = [];
+    const columnByField: Record<string, string> = {
+      category: "category",
+      amount: "amount",
+      method: "method",
+      note: "note",
+    };
+    for (const [field, value] of Object.entries(input.patch)) {
+      if (value === undefined) continue;
+      sets.push(`${columnByField[field]} = ?`);
+      params.push(value);
+    }
+    sets.push("edited = 1", "edited_at = ?", "edited_by_id = ?");
+    params.push(now, input.performedByUserId, input.expenseId);
+    db.prepare(`UPDATE expenses SET ${sets.join(", ")} WHERE id = ?`).run(...params);
+
+    const after = mapRow(db.prepare(`SELECT * FROM expenses WHERE id = ?`).get(input.expenseId));
+    enqueueSyncWrite(db, { localUuid: randomUUID(), entityType: "expenses", operation: "update", payload: after });
+    writeAuditLog(db, {
+      entityType: "expenses",
+      entityId: input.expenseId,
+      action: "update",
+      beforeValue: before,
+      afterValue: after,
+      performedById: input.performedByUserId,
+    });
+    return after;
   });
   return tx();
 }

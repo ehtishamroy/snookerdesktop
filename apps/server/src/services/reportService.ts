@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
-import { checkIdleAlert, computeUtilization, type TableStatusWindow } from "@snooker/shared";
+import { checkIdleAlert, computeUtilization, PAYMENT_METHODS, type TableStatusWindow } from "@snooker/shared";
 
 export interface DateRange {
   from: Date;
@@ -10,6 +10,18 @@ export function resolveDateRange(from?: string, to?: string): DateRange {
   const toDate = to ? new Date(to) : new Date();
   const fromDate = from ? new Date(from) : new Date(toDate.getTime() - 30 * 24 * 60 * 60 * 1000);
   return { from: fromDate, to: toDate };
+}
+
+function toDateKey(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function daysBetween(from: Date, to: Date): number {
+  return Math.max(1, Math.ceil((to.getTime() - from.getTime()) / (24 * 60 * 60 * 1000)));
+}
+
+function zeroMethodTotals(): Record<string, number> {
+  return Object.fromEntries(PAYMENT_METHODS.map((m) => [m, 0]));
 }
 
 export async function getRevenueReport(
@@ -25,53 +37,115 @@ export async function getRevenueReport(
 
   const games = await prisma.game.findMany({
     where: gameWhere,
-    select: { tableId: true, paymentStatus: true, priceFinal: true, discountAmount: true, table: { select: { tableNumber: true, label: true } } },
+    select: {
+      tableId: true,
+      paymentStatus: true,
+      priceFinal: true,
+      startTime: true,
+      table: { select: { tableNumber: true, label: true, tableType: true } },
+    },
   });
 
-  const byTableMap = new Map<number, { tableId: number; tableNumber: number; label: string; byStatus: Record<string, { count: number; total: number }> }>();
-  const byStatusOverall: Record<string, { count: number; total: number }> = {};
-
-  for (const g of games) {
-    if (!byTableMap.has(g.tableId)) {
-      byTableMap.set(g.tableId, {
-        tableId: g.tableId,
-        tableNumber: g.table.tableNumber,
-        label: g.table.label,
-        byStatus: {},
-      });
-    }
-    const tableBucket = byTableMap.get(g.tableId)!;
-    tableBucket.byStatus[g.paymentStatus] ??= { count: 0, total: 0 };
-    tableBucket.byStatus[g.paymentStatus]!.count += 1;
-    tableBucket.byStatus[g.paymentStatus]!.total += g.priceFinal;
-
-    byStatusOverall[g.paymentStatus] ??= { count: 0, total: 0 };
-    byStatusOverall[g.paymentStatus]!.count += 1;
-    byStatusOverall[g.paymentStatus]!.total += g.priceFinal;
-  }
-
+  // Payments settle rounds after the fact and can span multiple
+  // games/tables/days in one "losing chain" settlement, so there's no exact
+  // per-day/per-table payment-method attribution without much heavier
+  // bookkeeping. Each day's/table's method split is approximated by scaling
+  // that slice's revenue against the overall method proportions for the
+  // whole range — useful for a reconciliation-style breakdown without
+  // pretending to a precision the data doesn't actually support.
   const payments = await prisma.payment.findMany({
     where: { paidAt: { gte: opts.from, lte: opts.to } },
     select: { method: true, amount: true },
   });
-  const byPaymentMethod: Record<string, number> = {};
-  for (const p of payments) {
-    byPaymentMethod[p.method] = (byPaymentMethod[p.method] ?? 0) + p.amount;
+  const overallByMethod = zeroMethodTotals();
+  for (const p of payments) overallByMethod[p.method] = (overallByMethod[p.method] ?? 0) + p.amount;
+  const overallCollected = payments.reduce((sum, p) => sum + p.amount, 0);
+
+  function proportionalByMethod(amount: number): Record<string, number> {
+    if (overallCollected === 0) return zeroMethodTotals();
+    const result: Record<string, number> = {};
+    for (const [m, methodTotal] of Object.entries(overallByMethod)) {
+      result[m] = Math.round((methodTotal / overallCollected) * amount);
+    }
+    return result;
   }
 
-  const totalBilled = games.reduce((sum, g) => sum + g.priceFinal, 0);
-  const totalDiscounts = games.reduce((sum, g) => sum + g.discountAmount, 0);
-  const totalCollected = payments.reduce((sum, p) => sum + p.amount, 0);
+  const daysInRange = daysBetween(opts.from, opts.to);
+
+  const overallByStatus: Record<string, { count: number; total: number }> = {};
+  const overallDays = new Map<string, number>();
+  const perTableMap = new Map<
+    number,
+    {
+      tableId: number;
+      tableNumber: number;
+      tableLabel: string;
+      tableType: string;
+      total: number;
+      byStatus: Record<string, { count: number; total: number }>;
+      days: Map<string, number>;
+    }
+  >();
+
+  let overallTotal = 0;
+  for (const g of games) {
+    overallTotal += g.priceFinal;
+    overallByStatus[g.paymentStatus] ??= { count: 0, total: 0 };
+    overallByStatus[g.paymentStatus]!.count += 1;
+    overallByStatus[g.paymentStatus]!.total += g.priceFinal;
+    const dayKey = toDateKey(g.startTime);
+    overallDays.set(dayKey, (overallDays.get(dayKey) ?? 0) + g.priceFinal);
+
+    if (!perTableMap.has(g.tableId)) {
+      perTableMap.set(g.tableId, {
+        tableId: g.tableId,
+        tableNumber: g.table.tableNumber,
+        tableLabel: g.table.label,
+        tableType: g.table.tableType,
+        total: 0,
+        byStatus: {},
+        days: new Map(),
+      });
+    }
+    const bucket = perTableMap.get(g.tableId)!;
+    bucket.total += g.priceFinal;
+    bucket.byStatus[g.paymentStatus] ??= { count: 0, total: 0 };
+    bucket.byStatus[g.paymentStatus]!.count += 1;
+    bucket.byStatus[g.paymentStatus]!.total += g.priceFinal;
+    bucket.days.set(dayKey, (bucket.days.get(dayKey) ?? 0) + g.priceFinal);
+  }
+
+  const overall = {
+    total: overallTotal,
+    byMethod: overallByMethod,
+    byStatus: overallByStatus,
+    daysInRange,
+    dailyAverage: Math.round(overallTotal / daysInRange),
+    series: [...overallDays.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, total]) => ({ date, total, byMethod: proportionalByMethod(total) })),
+  };
+
+  const perTable = [...perTableMap.values()].map((b) => ({
+    tableId: b.tableId,
+    tableNumber: b.tableNumber,
+    tableLabel: b.tableLabel,
+    tableType: b.tableType,
+    total: b.total,
+    byMethod: proportionalByMethod(b.total),
+    byStatus: b.byStatus,
+    daysInRange,
+    dailyAverage: Math.round(b.total / daysInRange),
+    series: [...b.days.entries()]
+      .sort(([a], [c]) => a.localeCompare(c))
+      .map(([date, total]) => ({ date, total, byMethod: proportionalByMethod(total) })),
+  }));
 
   return {
     from: opts.from.toISOString(),
     to: opts.to.toISOString(),
-    byTable: [...byTableMap.values()],
-    byPaymentStatus: byStatusOverall,
-    byPaymentMethod,
-    totalBilled,
-    totalDiscounts,
-    totalCollected,
+    overall,
+    perTable,
   };
 }
 

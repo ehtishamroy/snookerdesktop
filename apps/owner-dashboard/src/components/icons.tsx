@@ -122,6 +122,15 @@ export function IconMerge({ className }: IconProps) {
   );
 }
 
+export function IconWallet({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <path d="M3 7a2 2 0 0 1 2-2h13a1 1 0 0 1 1 1v3h-4a3 3 0 0 0 0 6h4v3a1 1 0 0 1-1 1H5a2 2 0 0 1-2-2Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <circle cx="16" cy="12" r="1" fill="currentColor" />
+    </svg>
+  );
+}
+
 export function IconTag({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className}>

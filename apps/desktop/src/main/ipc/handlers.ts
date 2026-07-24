@@ -17,6 +17,7 @@ import type {
   AuthSession,
   CreateCustomerInput,
   CreateExpenseInput,
+  UpdateExpenseInput,
   CreateNishaniInput,
   CreatePricingRuleInput,
   CreateUserInput,
@@ -102,6 +103,7 @@ export function registerIpcHandlers(syncEngine: SyncEngine): void {
   });
   ipcMain.handle(IPC_CHANNELS.tablesGetHistory, (_event, tableId: number) => gamesRepo.getTableHistory(tableId));
   ipcMain.handle(IPC_CHANNELS.tablesGetVacancyHistory, (_event, tableId: number) => tableStatusLogRepo.getVacancyHistory(tableId));
+  ipcMain.handle(IPC_CHANNELS.tablesGetAllVacancyHistory, () => tableStatusLogRepo.getVacancyHistoryForAllTables());
 
   // ---- Game types / pricing --------------------------------------------------
   ipcMain.handle(IPC_CHANNELS.gameTypesList, (_event, tableType?: TableType) =>
@@ -143,6 +145,7 @@ export function registerIpcHandlers(syncEngine: SyncEngine): void {
   ipcMain.handle(IPC_CHANNELS.collateralAdd, (_event, input: AddCollateralInput) => collateralRepo.addCollateral(input));
   ipcMain.handle(IPC_CHANNELS.collateralReturn, (_event, input: ReturnCollateralInput) => collateralRepo.returnCollateral(input));
   ipcMain.handle(IPC_CHANNELS.expensesCreate, (_event, input: CreateExpenseInput) => expensesRepo.createExpense(input));
+  ipcMain.handle(IPC_CHANNELS.expensesUpdate, (_event, input: UpdateExpenseInput) => expensesRepo.updateExpense(input));
   ipcMain.handle(IPC_CHANNELS.expensesList, (_event, filter: ExpenseListFilter) => expensesRepo.listExpenses(filter ?? {}));
 
   // ---- Reports / audit -----------------------------------------------------------

@@ -19,6 +19,7 @@ import {
   IconSettings,
   IconTag,
   IconUsers,
+  IconWallet,
 } from "@/components/icons";
 
 interface NavItem {
@@ -39,6 +40,7 @@ const PRIMARY_NAV: NavItem[] = [
 ];
 
 const ADMIN_NAV: NavItem[] = [
+  { key: "capital", href: "/capital", label: "Capital", icon: IconWallet },
   { key: "adminPricing", href: "/admin/pricing", label: "Pricing", icon: IconTag },
   { key: "adminStaff", href: "/admin/staff", label: "Staff accounts", icon: IconSettings },
   { key: "adminMerge", href: "/admin/merge", label: "Customer merge", icon: IconMerge },

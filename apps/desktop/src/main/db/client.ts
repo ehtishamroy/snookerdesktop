@@ -40,6 +40,7 @@ export function getDb(): Database.Database {
   // has settled into its final, consistent shape.
   migrateGamesLoserNullable(db);
   repairDanglingGameChildForeignKeys(db);
+  migrateExpenseEditTracking(db);
   db.exec(schemaSql);
 
   seedReferenceDataIfEmpty(db);
@@ -134,6 +135,26 @@ function repairDanglingGameChildForeignKeys(database: Database.Database): void {
       DROP TABLE ${t.table}_dangling_fk_fix;
     `);
   }
+}
+
+/**
+ * Installs from before expense edit-tracking existed are missing the
+ * edited/edited_at/edited_by_id columns. Unlike the games rebuild above,
+ * SQLite's `ALTER TABLE ADD COLUMN` handles this directly — no rename/copy
+ * dance needed, since nothing else references these new columns via FK.
+ */
+function migrateExpenseEditTracking(database: Database.Database): void {
+  const expensesExists = tableExists(database, "expenses");
+  if (!expensesExists) return;
+
+  const columns = database.prepare(`PRAGMA table_info(expenses)`).all() as { name: string }[];
+  if (columns.some((c) => c.name === "edited")) return;
+
+  database.exec(`
+    ALTER TABLE expenses ADD COLUMN edited INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE expenses ADD COLUMN edited_at TEXT;
+    ALTER TABLE expenses ADD COLUMN edited_by_id INTEGER REFERENCES users (id);
+  `);
 }
 
 /**

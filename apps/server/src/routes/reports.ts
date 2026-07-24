@@ -35,10 +35,12 @@ reportsRouter.get(
     const report = await getRevenueReport(prisma, { tableId, from, to });
 
     if (wantsCsv(req)) {
-      const rows = report.byTable.map((t) => ({
+      const rows = report.perTable.map((t) => ({
         tableId: t.tableId,
         tableNumber: t.tableNumber,
-        label: t.label,
+        label: t.tableLabel,
+        total: t.total,
+        dailyAverage: t.dailyAverage,
         ...Object.fromEntries(
           Object.entries(t.byStatus).flatMap(([status, agg]) => [
             [`${status}_count`, agg.count],

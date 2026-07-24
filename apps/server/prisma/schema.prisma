@@ -90,7 +90,10 @@ model User {
   shifts               Shift[]           @relation("ShiftUser")
   shiftsClosedByMe      Shift[]          @relation("ShiftClosedBy")
   expensesRecorded     Expense[]          @relation("ExpenseRecordedBy")
+  expensesEdited       Expense[]          @relation("ExpenseEditedBy")
   auditEntries         AuditLog[]         @relation("AuditPerformedBy")
+  capitalBalancesSet   CapitalStartingBalance[] @relation("CapitalStartingBalanceSetBy")
+  payoutsPerformed     Payout[]           @relation("PayoutPerformedBy")
 
   @@map("users")
 }
@@ -315,8 +318,50 @@ model Expense {
   recordedBy       User          @relation("ExpenseRecordedBy", fields: [recordedByUserId], references: [id])
   shiftId          Int
   shift            Shift         @relation(fields: [shiftId], references: [id])
+  // Any staff can correct an expense after the fact (same "unrestricted but
+  // always attributed" philosophy as discounts, decision #3) — but every
+  // edit is flagged here so the owner can spot a corrected entry at a
+  // glance, on top of the full before/after already in audit_log.
+  edited           Boolean       @default(false)
+  editedAt         DateTime?
+  editedById       Int?
+  editedBy         User?         @relation("ExpenseEditedBy", fields: [editedById], references: [id])
 
   @@map("expenses")
+}
+
+// Owner-only balance sheet (spec extension): one row per payment method
+// holding the ONE baseline amount the owner has physically/digitally on
+// hand as of whenever they last set it. The current balance for a method
+// is always computed as startingAmount + sum(payments) - sum(expenses) -
+// sum(payouts) for that method — never stored as a running total, so it
+// can't drift out of sync with the ledger it's derived from. Updating this
+// (the owner correcting or topping up their recorded starting point) is
+// itself just overwriting the one row per method, audited like everything
+// else via audit_log.
+model CapitalStartingBalance {
+  method      PaymentMethod @id
+  amount      Int
+  updatedAt   DateTime      @updatedAt
+  updatedById Int
+  updatedBy   User          @relation("CapitalStartingBalanceSetBy", fields: [updatedById], references: [id])
+
+  @@map("capital_starting_balances")
+}
+
+// Owner drawing money out of capital (e.g. taking profit out for personal
+// use) — subtracts from that method's balance sheet total the same way an
+// expense does, but tracked separately since it isn't a club operating cost.
+model Payout {
+  id               Int           @id @default(autoincrement())
+  amount           Int
+  method           PaymentMethod
+  note             String?
+  performedAt       DateTime      @default(now())
+  performedById    Int
+  performedBy      User          @relation("PayoutPerformedBy", fields: [performedById], references: [id])
+
+  @@map("payouts")
 }
 
 // Append-only audit log. Nothing is ever hard-deleted; "delete" in the UI is

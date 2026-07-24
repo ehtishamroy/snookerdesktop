@@ -95,3 +95,32 @@ export function getVacancyHistory(
     utilizationPercent: Math.round(result.utilizationPercent * 10) / 10,
   };
 }
+
+/**
+ * The dedicated Vacancy Log page — every table's vacancy history at once
+ * (same "click a table" grid the Main Dashboard uses), visible to all staff
+ * since it's operational information, not financial.
+ */
+export function getVacancyHistoryForAllTables(sinceDays = 30): {
+  tableId: number;
+  tableNumber: number;
+  label: string;
+  windows: { from: string; to: string; durationMinutes: number }[];
+  totalVacantMinutes: number;
+  totalOccupiedMinutes: number;
+  utilizationPercent: number;
+}[] {
+  const db = getDb();
+  const tables = db.prepare(`SELECT id, table_number, label FROM tables ORDER BY table_number ASC`).all() as {
+    id: number;
+    table_number: number;
+    label: string;
+  }[];
+
+  return tables.map((t) => ({
+    tableId: t.id,
+    tableNumber: t.table_number,
+    label: t.label,
+    ...getVacancyHistory(t.id, sinceDays),
+  }));
+}

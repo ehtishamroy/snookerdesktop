@@ -37,6 +37,8 @@ export interface ZReportInput {
 export interface ZReport {
   totalsByMethod: Record<PaymentMethod, number>;
   expensesByMethod: Record<PaymentMethod, number>;
+  /** Each method's collected total minus that method's expenses (decision: expenses are always paid out of today's club earnings, cash or otherwise — never a separate pool). Cash's entry equals systemCashTotal. */
+  netByMethod: Record<PaymentMethod, number>;
   /** Cash collected minus cash paid out for expenses — what should physically be in the drawer. */
   systemCashTotal: number;
   declaredCashAmount: number;
@@ -68,7 +70,12 @@ export function buildZReport(input: ZReportInput): ZReport {
     expensesByMethod[e.method] += e.amount;
   }
 
-  const systemCashTotal = totalsByMethod.cash - expensesByMethod.cash;
+  const netByMethod = emptyMethodTotals();
+  for (const method of Object.keys(netByMethod) as PaymentMethod[]) {
+    netByMethod[method] = totalsByMethod[method] - expensesByMethod[method];
+  }
+
+  const systemCashTotal = netByMethod.cash;
   const cashVariance = input.declaredCashAmount - systemCashTotal;
 
   const totalCollected = Object.values(totalsByMethod).reduce((a, b) => a + b, 0);
@@ -85,6 +92,7 @@ export function buildZReport(input: ZReportInput): ZReport {
   return {
     totalsByMethod,
     expensesByMethod,
+    netByMethod,
     systemCashTotal,
     declaredCashAmount: input.declaredCashAmount,
     cashVariance,

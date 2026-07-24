@@ -150,6 +150,12 @@ export interface TableVacancyHistoryView {
   utilizationPercent: number;
 }
 
+export interface TableVacancyHistoryRow extends TableVacancyHistoryView {
+  tableId: number;
+  tableNumber: number;
+  label: string;
+}
+
 export interface PerTableRevenueRow {
   tableId: number;
   tableNumber: number;
@@ -340,6 +346,19 @@ export interface ExpenseListFilter {
   shiftId?: number;
 }
 
+export interface UpdateExpensePatch {
+  category?: string;
+  amount?: number;
+  method?: PaymentMethod;
+  note?: string;
+}
+
+export interface UpdateExpenseInput {
+  expenseId: number;
+  patch: UpdateExpensePatch;
+  performedByUserId: number;
+}
+
 export interface CreateUserInput {
   fullName: string;
   username: string;
@@ -377,6 +396,7 @@ export interface DesktopApi {
     setActive(input: SetTableActiveInput): Promise<TableEntity>;
     getHistory(tableId: number): Promise<TableHistoryView>;
     getVacancyHistory(tableId: number): Promise<TableVacancyHistoryView>;
+    getAllVacancyHistory(): Promise<TableVacancyHistoryRow[]>;
   };
   gameTypes: {
     list(tableType?: TableType): Promise<GameTypeEntity[]>;
@@ -410,6 +430,7 @@ export interface DesktopApi {
   };
   expenses: {
     create(input: CreateExpenseInput): Promise<ExpenseEntity>;
+    update(input: UpdateExpenseInput): Promise<ExpenseEntity>;
     list(filter: ExpenseListFilter): Promise<ExpenseEntity[]>;
   };
   reports: {
@@ -449,6 +470,7 @@ export const IPC_CHANNELS = {
   tablesSetActive: "tables:setActive",
   tablesGetHistory: "tables:getHistory",
   tablesGetVacancyHistory: "tables:getVacancyHistory",
+  tablesGetAllVacancyHistory: "tables:getAllVacancyHistory",
   gameTypesList: "gameTypes:list",
   pricingRulesGetActive: "pricingRules:getActive",
   pricingRulesGetHistory: "pricingRules:getHistory",
@@ -468,6 +490,7 @@ export const IPC_CHANNELS = {
   collateralAdd: "collateral:add",
   collateralReturn: "collateral:return",
   expensesCreate: "expenses:create",
+  expensesUpdate: "expenses:update",
   expensesList: "expenses:list",
   reportsGetLocalSummary: "reports:getLocalSummary",
   reportsGetAuditLog: "reports:getAuditLog",

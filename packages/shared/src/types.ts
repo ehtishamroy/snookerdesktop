@@ -132,6 +132,10 @@ export interface ExpenseEntity {
   spentAt: string;
   recordedByUserId: number;
   shiftId: number;
+  /** Set whenever this expense is corrected after creation, so the owner can spot an edited entry at a glance. */
+  edited: boolean;
+  editedAt: string | null;
+  editedById: number | null;
 }
 
 export interface AuditLogEntity {

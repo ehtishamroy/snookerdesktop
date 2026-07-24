@@ -2,13 +2,16 @@ import type { PaymentMethod, PaymentStatus, Role, TableType } from "@snooker/sha
 import { clearSession, getToken } from "./tokenStore";
 import type {
   AuditLogRow,
+  BalanceSheet,
   CollateralItemRow,
   CustomerEntity,
   CustomerLedgerWire,
   ExpenseEntity,
+  FinancialAnalysis,
   GameTypeEntity,
   LoanLedgerEntry,
   LoginResponse,
+  PayoutEntry,
   PricingRuleEntity,
   RevenueReport,
   ShiftEntity,
@@ -33,7 +36,7 @@ export class ApiError extends Error {
 }
 
 export interface RequestOptions {
-  method?: "GET" | "POST" | "PATCH" | "DELETE";
+  method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
   body?: unknown;
   query?: Record<string, string | number | boolean | undefined | null>;
   /** Skip attaching the Authorization header (only /auth/login needs this). */
@@ -211,6 +214,23 @@ export const apiClient = {
   },
   getTricked(params: { from?: string; to?: string }) {
     return request<TrickedEntry[]>("/reports/tricked", { query: params });
+  },
+
+  // ---- Capital / balance sheet (owner-only) ----
+  getBalanceSheet() {
+    return request<BalanceSheet>("/capital/balance-sheet");
+  },
+  setStartingBalance(input: { method: PaymentMethod; amount: number }) {
+    return request<unknown>("/capital/starting-balance", { method: "PUT", body: input });
+  },
+  recordPayout(input: { amount: number; method: PaymentMethod; note?: string }) {
+    return request<PayoutEntry>("/capital/payouts", { method: "POST", body: input });
+  },
+  getPayouts(params: { from?: string; to?: string } = {}) {
+    return request<PayoutEntry[]>("/capital/payouts", { query: params });
+  },
+  getFinancialAnalysis(params: { monthsLookback?: number } = {}) {
+    return request<FinancialAnalysis>("/capital/analysis", { query: params });
   },
 };
 

@@ -28,6 +28,7 @@ const api: DesktopApi = {
     setActive: (input) => invoke(IPC_CHANNELS.tablesSetActive, input),
     getHistory: (tableId) => invoke(IPC_CHANNELS.tablesGetHistory, tableId),
     getVacancyHistory: (tableId) => invoke(IPC_CHANNELS.tablesGetVacancyHistory, tableId),
+    getAllVacancyHistory: () => invoke(IPC_CHANNELS.tablesGetAllVacancyHistory),
   },
   gameTypes: {
     list: (tableType) => invoke(IPC_CHANNELS.gameTypesList, tableType),
@@ -61,6 +62,7 @@ const api: DesktopApi = {
   },
   expenses: {
     create: (input) => invoke(IPC_CHANNELS.expensesCreate, input),
+    update: (input) => invoke(IPC_CHANNELS.expensesUpdate, input),
     list: (filter) => invoke(IPC_CHANNELS.expensesList, filter),
   },
   reports: {

@@ -228,6 +228,9 @@ const EXPENSE_COLUMNS = {
   spent_at: "spentAt",
   recorded_by_user_id: "recordedByUserId",
   shift_id: "shiftId",
+  edited: "edited",
+  edited_at: "editedAt",
+  edited_by_id: "editedById",
 };
 
 export function applyPulledChanges(db: Database.Database, pull: PullResponse): void {

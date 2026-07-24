@@ -67,6 +67,15 @@ export function ReportsScreen() {
           <Stat label="JazzCash" value={`Rs. ${z.totalsByMethod.jazzcash}`} small />
           <Stat label="Card" value={`Rs. ${z.totalsByMethod.card}`} small />
         </div>
+        <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+          Net after today&rsquo;s expenses (expenses always come out of the club&rsquo;s own earnings):
+        </p>
+        <div className="grid grid-cols-4 gap-4 text-sm">
+          <Stat label="Net Cash" value={`Rs. ${z.netByMethod.cash}`} small />
+          <Stat label="Net EasyPaisa" value={`Rs. ${z.netByMethod.easypaisa}`} small />
+          <Stat label="Net JazzCash" value={`Rs. ${z.netByMethod.jazzcash}`} small />
+          <Stat label="Net Card" value={`Rs. ${z.netByMethod.card}`} small />
+        </div>
         <div className="mt-4 grid grid-cols-4 gap-4 text-sm">
           <Stat label="Total Collected" value={`Rs. ${z.totalCollected}`} small />
           <Stat label="Discounts Given" value={`Rs. ${z.totalDiscountsGiven}`} small />

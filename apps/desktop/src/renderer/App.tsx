@@ -7,15 +7,17 @@ import { ReportsScreen } from "./screens/ReportsScreen";
 import { AdminSettingsScreen } from "./screens/AdminSettingsScreen";
 import { ExpenseEntryScreen } from "./screens/ExpenseEntryScreen";
 import { ShiftCloseScreen } from "./screens/ShiftCloseScreen";
+import { VacancyLogScreen } from "./screens/VacancyLogScreen";
 import { SyncStatusIndicator } from "./components/SyncStatusIndicator";
 
-type ScreenName = "dashboard" | "ledger" | "reports" | "expense" | "admin";
+type ScreenName = "dashboard" | "ledger" | "reports" | "expense" | "vacancy" | "admin";
 
 const NAV_ITEMS: { key: ScreenName; label: string; ownerManagerOnly?: boolean }[] = [
   { key: "dashboard", label: "Dashboard" },
   { key: "ledger", label: "Customer Ledger" },
   { key: "reports", label: "Reports" },
   { key: "expense", label: "Expense" },
+  { key: "vacancy", label: "Vacancy Log" },
   { key: "admin", label: "Admin Settings", ownerManagerOnly: true },
 ];
 
@@ -74,6 +76,7 @@ export default function App() {
         {screen === "ledger" && <CustomerLedgerScreen />}
         {screen === "reports" && <ReportsScreen />}
         {screen === "expense" && <ExpenseEntryScreen />}
+        {screen === "vacancy" && <VacancyLogScreen />}
         {screen === "admin" && isOwnerOrManager && <AdminSettingsScreen />}
       </main>
 
