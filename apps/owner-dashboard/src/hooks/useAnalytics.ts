@@ -43,3 +43,13 @@ export function useUtilizationReport(from: string, to: string, tableId?: number)
   });
   return { utilization: data ?? [], isLoading, error: error as Error | undefined };
 }
+
+/** The "round graph" — every table's full occupied/vacant timeline for one calendar day (today or any day in the past). */
+export function useTableDayTimelines(date: string) {
+  const { isAuthenticated } = useAuth();
+  const key = isAuthenticated ? ["day-timeline", date] : null;
+  const { data, error, isLoading } = useSWR(key, () => apiClient.getTableDayTimelines({ date }), {
+    revalidateOnFocus: false,
+  });
+  return { timelines: data ?? [], isLoading, error: error as Error | undefined };
+}

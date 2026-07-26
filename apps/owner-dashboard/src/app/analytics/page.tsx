@@ -8,15 +8,22 @@ import { PaymentMethodBreakdown, PaymentStatusBreakdown } from "@/components/Pay
 import { RangePicker } from "@/components/RangePicker";
 import { RevenueChart } from "@/components/RevenueChart";
 import { StatCard } from "@/components/StatCard";
-import { useRevenueReport, useUtilizationReport } from "@/hooks/useAnalytics";
+import { useRevenueReport, useTableDayTimelines, useUtilizationReport } from "@/hooks/useAnalytics";
 import { useLoanLedger } from "@/hooks/useLedger";
 import { useStaffPerformance } from "@/hooks/useStaffReport";
 import { useTables } from "@/hooks/useTables";
+import { DayClockLegend, TableDayClock } from "@/components/TableDayClock";
 import type { TableRevenueBreakdown, TableUtilizationWire } from "@/lib/apiTypes";
 import { presetRange, type RangePreset } from "@/lib/dateRanges";
 import { exportCsv } from "@/lib/exportCsv";
 import { formatDate, formatMinutes, formatPercent, formatPKR } from "@/lib/format";
 import type { LoanLedgerEntry } from "@/lib/apiTypes";
+
+function todayDateInputValue(): string {
+  const d = new Date();
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
 
 export default function AnalyticsPage() {
   return (
@@ -46,6 +53,8 @@ function AnalyticsPageContent() {
     selectedTableId === "all" ? undefined : selectedTableId
   );
   const { utilization, isLoading: utilLoading } = useUtilizationReport(range.from, range.to);
+  const [selectedDay, setSelectedDay] = useState(todayDateInputValue);
+  const { timelines, isLoading: timelinesLoading } = useTableDayTimelines(selectedDay);
   const { entries: loanEntries } = useLoanLedger();
   const { staff, isLoading: staffLoading } = useStaffPerformance(range.from, range.to);
 
@@ -133,6 +142,78 @@ function AnalyticsPageContent() {
             keyField={(r) => r.tableId}
             defaultSortKey="total"
           />
+        )}
+      </section>
+
+      {/* Table occupancy — day view (the "round graph") */}
+      <section className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="section-title">Table occupancy — day view</h2>
+            <p className="text-xs text-slate-400">
+              One 24-hour ring per table — occupied vs vacant, at a glance. Hover a segment for its exact time.
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <button
+              className="btn-secondary px-2 py-1 text-xs"
+              onClick={() => {
+                const d = new Date(selectedDay);
+                d.setDate(d.getDate() - 1);
+                setSelectedDay(d.toISOString().slice(0, 10));
+              }}
+              aria-label="Previous day"
+            >
+              ←
+            </button>
+            <input
+              type="date"
+              className="input !w-auto py-1 text-xs"
+              value={selectedDay}
+              max={todayDateInputValue()}
+              onChange={(e) => setSelectedDay(e.target.value)}
+            />
+            <button className="btn-secondary px-2 py-1 text-xs" onClick={() => setSelectedDay(todayDateInputValue())}>
+              Today
+            </button>
+            <button
+              className="btn-secondary px-2 py-1 text-xs"
+              disabled={selectedDay >= todayDateInputValue()}
+              onClick={() => {
+                const d = new Date(selectedDay);
+                d.setDate(d.getDate() + 1);
+                setSelectedDay(d.toISOString().slice(0, 10));
+              }}
+              aria-label="Next day"
+            >
+              →
+            </button>
+          </div>
+        </div>
+        <DayClockLegend />
+        {timelinesLoading ? (
+          <div className="h-56 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
+        ) : timelines.length === 0 ? (
+          <EmptyState title="No data for this day" />
+        ) : (
+          <div className="card grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+            {timelines.map((t) => {
+              const occupiedMs = t.segments
+                .filter((s) => s.status === "occupied")
+                .reduce((sum, s) => sum + (new Date(s.to).getTime() - new Date(s.from).getTime()), 0);
+              const totalMs = new Date(t.segments[t.segments.length - 1]?.to ?? t.date).getTime() - new Date(t.date).getTime();
+              const pct = totalMs > 0 ? Math.round((occupiedMs / totalMs) * 100) : 0;
+              return (
+                <TableDayClock
+                  key={t.tableId}
+                  dayStartIso={t.date}
+                  segments={t.segments}
+                  label={t.label}
+                  utilizationPercent={pct}
+                />
+              );
+            })}
+          </div>
         )}
       </section>
 

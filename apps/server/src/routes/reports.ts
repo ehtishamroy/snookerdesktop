@@ -8,6 +8,7 @@ import {
   getIdleAlerts,
   getRevenueReport,
   getStaffPerformanceReport,
+  getTableDayTimelines,
   getTrickedReport,
   getUtilizationReport,
   resolveDateRange,
@@ -144,6 +145,23 @@ reportsRouter.get(
       }));
       return sendCsv(res, "utilization.csv", flat);
     }
+    res.json(rows);
+  })
+);
+
+/**
+ * GET /reports/table-day-timeline — the "round graph" data source: every
+ * table's full occupied/vacant timeline for one calendar day (today or any
+ * day in the past), for a 24-hour radial occupancy chart.
+ */
+reportsRouter.get(
+  "/table-day-timeline",
+  requireRole("owner", "manager"),
+  asyncHandler(async (req, res) => {
+    const dateParam = req.query.date as string | undefined;
+    const date = dateParam ? new Date(dateParam) : new Date();
+    const tableId = req.query.tableId ? Number(req.query.tableId) : undefined;
+    const rows = await getTableDayTimelines(prisma, { date, tableId });
     res.json(rows);
   })
 );

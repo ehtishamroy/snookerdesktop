@@ -102,6 +102,20 @@ export interface VacantWindowWire {
   to: string;
 }
 
+export interface TableDayTimelineSegment {
+  status: "occupied" | "vacant";
+  from: string;
+  to: string;
+}
+
+export interface TableDayTimelineWire {
+  tableId: number;
+  tableNumber: number;
+  label: string;
+  date: string;
+  segments: TableDayTimelineSegment[];
+}
+
 export interface TableUtilizationWire {
   tableId: number;
   tableNumber: number;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { BalanceByMethodChart } from "@/components/BalanceByMethodChart";
 import { PageGuard } from "@/components/PageGuard";
 import { EmptyState } from "@/components/EmptyState";
 import { StatCard } from "@/components/StatCard";
@@ -54,6 +55,10 @@ function CapitalPageContent() {
               {sheet.byMethod.map((m) => (
                 <StatCard key={m.method} label={PAYMENT_METHOD_LABELS[m.method] ?? m.method} value={formatPKR(m.balance)} />
               ))}
+            </div>
+
+            <div className="card">
+              <BalanceByMethodChart byMethod={sheet.byMethod} />
             </div>
 
             <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">

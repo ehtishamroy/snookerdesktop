@@ -251,6 +251,50 @@ export async function getTrickedReport(prisma: PrismaClient, opts: { from: Date;
  * from an open game row), the 'occupied' windows for this report are
  * reconstructed as the complement of the vacant windows within [from, to].
  */
+/**
+ * table_status_log only ever stores 'vacant' windows (occupancy is derived
+ * from an open game row) — this reconstructs the full occupied+vacant
+ * timeline for one table within [from, to] by treating every gap between
+ * vacant windows as occupied. Shared by getUtilizationReport (which only
+ * needs the aggregate minutes/percent) and getTableDayTimelines (which
+ * needs the actual segments, e.g. to draw a 24h occupancy chart).
+ */
+async function reconstructTableWindows(
+  prisma: PrismaClient,
+  tableId: number,
+  from: Date,
+  to: Date
+): Promise<TableStatusWindow[]> {
+  const vacantRows = await prisma.tableStatusLog.findMany({
+    where: {
+      tableId,
+      status: "vacant",
+      statusFrom: { lt: to },
+      OR: [{ statusTo: null }, { statusTo: { gt: from } }],
+    },
+    orderBy: { statusFrom: "asc" },
+  });
+
+  const clipped = vacantRows.map((r) => ({
+    from: r.statusFrom < from ? from : r.statusFrom,
+    to: r.statusTo === null || r.statusTo > to ? to : r.statusTo,
+  }));
+
+  const windows: TableStatusWindow[] = [];
+  let cursor = from;
+  for (const w of clipped) {
+    if (w.from > cursor) {
+      windows.push({ status: "occupied", statusFrom: cursor, statusTo: w.from });
+    }
+    windows.push({ status: "vacant", statusFrom: w.from, statusTo: w.to });
+    cursor = w.to > cursor ? w.to : cursor;
+  }
+  if (cursor < to) {
+    windows.push({ status: "occupied", statusFrom: cursor, statusTo: to });
+  }
+  return windows;
+}
+
 export async function getUtilizationReport(
   prisma: PrismaClient,
   opts: { tableId?: number; from: Date; to: Date }
@@ -262,34 +306,7 @@ export async function getUtilizationReport(
 
   const results = [];
   for (const table of tables) {
-    const vacantRows = await prisma.tableStatusLog.findMany({
-      where: {
-        tableId: table.id,
-        status: "vacant",
-        statusFrom: { lt: opts.to },
-        OR: [{ statusTo: null }, { statusTo: { gt: opts.from } }],
-      },
-      orderBy: { statusFrom: "asc" },
-    });
-
-    const clipped = vacantRows.map((r) => ({
-      from: r.statusFrom < opts.from ? opts.from : r.statusFrom,
-      to: r.statusTo === null || r.statusTo > opts.to ? opts.to : r.statusTo,
-    }));
-
-    const windows: TableStatusWindow[] = [];
-    let cursor = opts.from;
-    for (const w of clipped) {
-      if (w.from > cursor) {
-        windows.push({ status: "occupied", statusFrom: cursor, statusTo: w.from });
-      }
-      windows.push({ status: "vacant", statusFrom: w.from, statusTo: w.to });
-      cursor = w.to > cursor ? w.to : cursor;
-    }
-    if (cursor < opts.to) {
-      windows.push({ status: "occupied", statusFrom: cursor, statusTo: opts.to });
-    }
-
+    const windows = await reconstructTableWindows(prisma, table.id, opts.from, opts.to);
     const utilization = computeUtilization(windows, opts.to);
     results.push({
       tableId: table.id,
@@ -297,6 +314,41 @@ export async function getUtilizationReport(
       label: table.label,
       tableType: table.tableType,
       ...utilization,
+    });
+  }
+
+  return results;
+}
+
+/**
+ * The "round graph" data source: every table's full occupied/vacant
+ * timeline for exactly one calendar day, clipped to [dayStart, dayEnd) —
+ * the shape a 24-hour radial/clock chart draws directly (each segment
+ * becomes one colored arc). `date` is interpreted as a local calendar day
+ * boundary (00:00–24:00) in the server's timezone.
+ */
+export async function getTableDayTimelines(prisma: PrismaClient, opts: { date: Date; tableId?: number }) {
+  const dayStart = new Date(opts.date.getFullYear(), opts.date.getMonth(), opts.date.getDate());
+  const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+
+  const tables = await prisma.table.findMany({
+    where: opts.tableId ? { id: opts.tableId } : {},
+    orderBy: { tableNumber: "asc" },
+  });
+
+  const results = [];
+  for (const table of tables) {
+    const windows = await reconstructTableWindows(prisma, table.id, dayStart, dayEnd);
+    results.push({
+      tableId: table.id,
+      tableNumber: table.tableNumber,
+      label: table.label,
+      date: dayStart.toISOString(),
+      segments: windows.map((w) => ({
+        status: w.status,
+        from: w.statusFrom.toISOString(),
+        to: (w.statusTo ?? dayEnd).toISOString(),
+      })),
     });
   }
 

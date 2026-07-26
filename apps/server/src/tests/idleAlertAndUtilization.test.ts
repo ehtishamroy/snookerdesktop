@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createTestDb } from "./testDb";
-import { getIdleAlerts, getUtilizationReport } from "../services/reportService";
+import { getIdleAlerts, getTableDayTimelines, getUtilizationReport } from "../services/reportService";
 
 describe("idle alert detection (behavioral requirement #6, jobs/idleAlertScan.ts)", () => {
   it("flags a game running past double its expected block duration, and not one still within it", async () => {
@@ -56,5 +56,27 @@ describe("table utilization report (§2.7)", () => {
     expect(report!.vacantMinutes).toBe(30 + 45); // 09:00-09:30 + 10:15-11:00
     expect(report!.occupiedMinutes).toBe(45); // 09:30-10:15
     expect(report!.utilizationPercent).toBeCloseTo((45 / 120) * 100, 5);
+  });
+});
+
+describe("getTableDayTimelines (the round-graph data source)", () => {
+  it("returns a full day's alternating occupied/vacant segments, clipped to the calendar day", async () => {
+    const db = createTestDb();
+    const table = await db.table.create({ data: { tableNumber: 3, tableType: "standard", label: "Table 3" } });
+
+    // Vacant from the day before straight through 09:00, occupied 09:00-10:00, vacant onward (still open).
+    await db.tableStatusLog.create({
+      data: { tableId: table.id, status: "vacant", statusFrom: new Date("2026-07-22T18:00:00Z"), statusTo: new Date("2026-07-23T09:00:00Z") },
+    });
+    await db.tableStatusLog.create({
+      data: { tableId: table.id, status: "vacant", statusFrom: new Date("2026-07-23T10:00:00Z"), statusTo: null },
+    });
+
+    const [row] = await getTableDayTimelines(db as any, { date: new Date("2026-07-23T15:00:00Z"), tableId: table.id });
+    expect(row!.tableId).toBe(table.id);
+    expect(row!.segments.length).toBe(3);
+    expect(row!.segments[0]).toMatchObject({ status: "vacant", from: "2026-07-23T00:00:00.000Z", to: "2026-07-23T09:00:00.000Z" });
+    expect(row!.segments[1]).toMatchObject({ status: "occupied", from: "2026-07-23T09:00:00.000Z", to: "2026-07-23T10:00:00.000Z" });
+    expect(row!.segments[2]).toMatchObject({ status: "vacant", from: "2026-07-23T10:00:00.000Z", to: "2026-07-24T00:00:00.000Z" });
   });
 });

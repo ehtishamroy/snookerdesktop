@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { DataTable, type DataTableColumn } from "@/components/DataTable";
 import { EmptyState } from "@/components/EmptyState";
+import { ExpenseChart } from "@/components/ExpenseChart";
 import { PageGuard } from "@/components/PageGuard";
 import { PaymentMethodBadge } from "@/components/PaymentMethodBadge";
 import { PaymentMethodBreakdown } from "@/components/PaymentBreakdownBars";
@@ -70,6 +71,11 @@ function ExpensesPageContent() {
 
       <section className="card">
         <PaymentMethodBreakdown byMethod={byMethod} title="Total expenses by method" />
+      </section>
+
+      <section className="card flex flex-col gap-2">
+        <h2 className="section-title">Expenses over time</h2>
+        <ExpenseChart expenses={expenses} />
       </section>
 
       <section className="flex flex-col gap-3">

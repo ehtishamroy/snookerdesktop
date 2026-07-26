@@ -16,6 +16,7 @@ import type {
   RevenueReport,
   ShiftEntity,
   StaffPerformanceEntry,
+  TableDayTimelineWire,
   TableUtilizationWire,
   TableWithStatus,
   TrickedEntry,
@@ -205,6 +206,9 @@ export const apiClient = {
   },
   getUtilizationReport(params: { tableId?: number; from: string; to: string }) {
     return request<TableUtilizationWire[]>("/reports/utilization", { query: params });
+  },
+  getTableDayTimelines(params: { date: string; tableId?: number }) {
+    return request<TableDayTimelineWire[]>("/reports/table-day-timeline", { query: params });
   },
   getStaffPerformance(params: { from: string; to: string }) {
     return request<StaffPerformanceEntry[]>("/reports/staff-performance", { query: params });
