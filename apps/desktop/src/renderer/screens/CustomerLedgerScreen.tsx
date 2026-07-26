@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import { api } from "../api";
 import type { CustomerLedgerView, LoanLedgerRow, PaymentMethod } from "../api";
@@ -26,10 +26,27 @@ export function CustomerLedgerScreen() {
   const [discountReason, setDiscountReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<"amount" | "date">("amount");
 
   async function refreshLoanLedger() {
     setLoanLedger(await api.customers.getLoanLedger());
   }
+
+  // A customer drops off this list the moment every one of their rounds is
+  // marked paid (the query behind getLoanLedger only counts unsettled
+  // rounds) — so this is already never a lengthy "everyone who ever owed
+  // anything" list. Sorting is just about finding someone fast within
+  // whatever's still outstanding: by amount (biggest first, the default) or
+  // by date (oldest debt first, to catch one that's been sitting a while).
+  const sortedLoanLedger = useMemo(() => {
+    const rows = [...loanLedger];
+    if (sortBy === "date") {
+      rows.sort((a, b) => new Date(a.oldestUnpaidAt).getTime() - new Date(b.oldestUnpaidAt).getTime());
+    } else {
+      rows.sort((a, b) => b.totalOwed - a.totalOwed);
+    }
+    return rows;
+  }, [loanLedger, sortBy]);
 
   useEffect(() => {
     void refreshLoanLedger();
@@ -109,12 +126,33 @@ export function CustomerLedgerScreen() {
         </div>
 
         <div className="card p-4">
-          <h2 className="mb-3 text-lg font-bold">Loan Ledger (all outstanding)</h2>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg font-bold">Loan Ledger (all outstanding)</h2>
+            <div className="flex gap-1 text-xs">
+              <button
+                className={`rounded-md px-2 py-1 font-semibold ${
+                  sortBy === "amount" ? "bg-blue-600 text-white" : "bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300"
+                }`}
+                onClick={() => setSortBy("amount")}
+              >
+                Amount
+              </button>
+              <button
+                className={`rounded-md px-2 py-1 font-semibold ${
+                  sortBy === "date" ? "bg-blue-600 text-white" : "bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300"
+                }`}
+                onClick={() => setSortBy("date")}
+              >
+                Oldest
+              </button>
+            </div>
+          </div>
           <p className="mb-2 text-xs text-slate-500 dark:text-slate-400">
             Includes nishani (&ldquo;don&rsquo;t know the name&rdquo;) records — click one to open its ledger even without a name.
+            Settles up and disappears from this list automatically once fully paid.
           </p>
           <div className="max-h-96 space-y-1 overflow-y-auto">
-            {loanLedger.map((row) => (
+            {sortedLoanLedger.map((row) => (
               <button
                 key={row.customerId}
                 onClick={() => setCustomerId(row.customerId)}
@@ -125,6 +163,9 @@ export function CustomerLedgerScreen() {
                 <span className="truncate">
                   {row.displayName}
                   {row.isTemporary && <span className="ml-1 text-xs text-slate-400">(nishani)</span>}
+                  {sortBy === "date" && (
+                    <span className="ml-2 text-xs text-slate-400">since {format(new Date(row.oldestUnpaidAt), "d MMM")}</span>
+                  )}
                 </span>
                 <span className="shrink-0 font-bold text-red-600 dark:text-red-400">Rs. {row.totalOwed}</span>
               </button>
